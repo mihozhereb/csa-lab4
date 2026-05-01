@@ -180,39 +180,46 @@ def has_arg(opcode: Opcode) -> bool:
     }
 
 
-def from_bytes(binary_code: bytes, base_addr: int = 0) -> list[Instruction]:
-    """
-    Преобразует бинарное представление обратно в список инструкций.
-    """
-    code: list[Instruction] = []
+def decode_instr(opcode_bin: bytes) -> Opcode:
+    if opcode_bin not in binary_to_opcode:
+        raise ValueError(f"Unknown opcode 0x{opcode_bin:02X}")
+    
+    return binary_to_opcode[opcode_bin]
 
-    i = 0
 
-    while i < len(binary_code):
-        addr = base_addr + i
-        opcode_bin = binary_code[i]
+# def from_bytes(binary_code: bytes, base_addr: int = 0) -> list[Instruction]:
+#     """
+#     Преобразует бинарное представление обратно в список инструкций.
+#     """
+#     code: list[Instruction] = []
 
-        if opcode_bin not in binary_to_opcode:
-            raise ValueError(f"Unknown opcode 0x{opcode_bin:02X} at address 0x{addr:08X}")
+#     i = 0
 
-        opcode = binary_to_opcode[opcode_bin]
-        i += 1
+#     while i < len(binary_code):
+#         addr = base_addr + i
+#         opcode_bin = binary_code[i]
 
-        term = Term(0, addr, opcode.value)
+#         if opcode_bin not in binary_to_opcode:
+#             raise ValueError(f"Unknown opcode 0x{opcode_bin:02X} at address 0x{addr:08X}")
 
-        if has_arg(opcode):
-            if i + 4 > len(binary_code):
-                raise ValueError(f"Missing argument for {opcode.value} at address 0x{addr:08X}")
+#         opcode = binary_to_opcode[opcode_bin]
+#         i += 1
 
-            arg = int.from_bytes(
-                binary_code[i:i + 4],
-                byteorder="big",
-                signed=True,
-            )
+#         term = Term(0, addr, opcode.value)
 
-            code.append(Instruction(opcode=opcode, term=term, arg=arg))
-            i += 4
-        else:
-            code.append(Instruction(opcode=opcode, term=term))
+#         if has_arg(opcode):
+#             if i + 4 > len(binary_code):
+#                 raise ValueError(f"Missing argument for {opcode.value} at address 0x{addr:08X}")
 
-    return code
+#             arg = int.from_bytes(
+#                 binary_code[i:i + 4],
+#                 byteorder="big",
+#                 signed=True,
+#             )
+
+#             code.append(Instruction(opcode=opcode, term=term, arg=arg))
+#             i += 4
+#         else:
+#             code.append(Instruction(opcode=opcode, term=term))
+
+#     return code
