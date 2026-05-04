@@ -263,6 +263,7 @@ def parse_program(terms: list[Term], data_start: int = 0) -> Program:
 
             while i < len(terms):
                 if terms[i].word == ";":
+                    # TODO: add ret and iret
                     break
 
                 body.append(terms[i])

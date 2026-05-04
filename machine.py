@@ -1,3 +1,4 @@
+from enum import Enum
 import logging
 import sys
 
@@ -5,14 +6,8 @@ from isa import Instruction, Opcode, decode_instr, from_bytes, has_arg, opcode_t
 
 
 class DataPath:
-    data_memory_size = None
-    "Размер памяти данных."
-
-    data_memory = None
-    "Память данных. Инициализируется нулевыми значениями."
-
-    data_address = None
-    "Адрес в памяти данных. Инициализируется нулём."
+    memory = None
+    "Память. Инициализируется входными данными конструктора."
 
     stack = None
     "Стек данных."
@@ -27,10 +22,7 @@ class DataPath:
     "Буфер выходных данных."
 
     def __init__(self, data_memory_size, input_buffer):
-        assert data_memory_size > 0, "Data_memory size should be non-zero"
-        self.data_memory_size = data_memory_size
-        self.data_memory = [0] * data_memory_size
-        self.data_address = 0
+        self.memory = 
         self.nzvc_register = 0
         self.input_buffer = input_buffer
         self.output_buffer = []
@@ -77,11 +69,14 @@ class DataPath:
 
 
 class ControlUnit:
-    program: bytes = None
+    memory: bytes = None
     "Память."
 
     program_counter = None
     "Счётчик команд. Инициализируется нулём."
+
+    instr_register = None
+    "Регистр команд. Инициализируется нулём."
 
     data_path = None
     "Блок обработки данных."
@@ -90,8 +85,9 @@ class ControlUnit:
     "Текущее модельное время процессора (в тактах). Инициализируется нулём."
 
     def __init__(self, program, data_path):
-        self.program = program
+        self.memory = program
         self.program_counter = 0
+        self.instr_register = 0
         self.data_path = data_path
         self._tick = 0
         self.step = 0
@@ -110,26 +106,37 @@ class ControlUnit:
             assert "arg" in instr, "internal error"
             self.program_counter = instr["arg"]
 
+    class SelPcIn(Enum):
+        PLUS_1 = 1
+        PLUS_4 = 2
+        FROM_STACK = 3
+        FROM_MEMORY = 4
+
+    def signal_latch_instr_register(self, sel: SelPcIn):
+        self.instr_register = self.memory[self.program_counter]
+
     def process_next_tick(self):
         """Основной цикл процессора. Декодирует и выполняет инструкцию."""
 
-        bin_instr = self.program[self.program_counter]
+        # 1 tick -- instr fetch
+        self.signal_latch_instr_register()
+
+        bin_instr = self.instr_register
         opcode = decode_instr(bin_instr)
 
-        # 1 tick -- instr fetch
-        # latch_instr_register
+        self.signal_latch_program_counter(sel_next=True)
 
-        # [tick] -- operand fetch
-        if has_arg(opcode):
-            pass
-
-        # 2-...n-1 tick -- instr exec
+        # 2-...n-1 tick -- instr exec [and parse operand]
 
         if opcode is Opcode.HALT:
             raise StopIteration()
 
         if opcode is Opcode.JMP:
-            addr = instr["arg"]
+            addr = int.from_bytes(
+                self.memory[self.program_counter + 1:self.program_counter + 5],
+                byteorder="big",
+                signed=True,
+            )
             self.program_counter = addr
             self.step = 0
             self.tick()
@@ -183,6 +190,8 @@ class ControlUnit:
                 self.step = 0
                 self.tick()
                 return
+        
+        # intr fetch
 
     def __repr__(self):
         """Вернуть строковое представление состояния процессора."""
