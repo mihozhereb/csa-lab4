@@ -1,9 +1,9 @@
 from collections import namedtuple
-from enum import Enum
 from dataclasses import dataclass
+from enum import StrEnum
 
 
-class Opcode(str, Enum):
+class Opcode(StrEnum):
     # ALU
     ADD = "add"
     SUB = "sub"
@@ -40,7 +40,7 @@ class Opcode(str, Enum):
 
     def __str__(self):
         return str(self.value)
-    
+
 
 class Term(namedtuple("Term", "line pos word")):
     """
@@ -174,5 +174,5 @@ def to_hex(code: list[Instruction], base_addr: int = 0) -> str:
 def decode_instr(opcode_bin: int) -> Opcode:
     if opcode_bin not in binary_to_opcode:
         raise ValueError(f"Unknown opcode 0x{opcode_bin:02X}")
-    
+
     return binary_to_opcode[opcode_bin]

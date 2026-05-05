@@ -1,11 +1,9 @@
 import argparse
-from enum import Enum
 import logging
 import re
-import sys
+from enum import Enum
 
 from isa import Opcode, decode_instr
-
 
 INTR_VECTOR_ADDR = 5
 IN_ADDR = 9
@@ -38,7 +36,7 @@ class DataStack:
 
         return self.data_stack_memory[-2]
 
-    def pop(self, value_from_alu: int = None) -> int:
+    def pop(self, value_from_alu: int | None = None) -> int:
         """
         Удаляет верхний элемент стека и смещает next => tods.
         Если установлен value_from_alu, то value_from_alu => tods, а значение next затирается.
@@ -53,7 +51,7 @@ class DataStack:
 
             self.data_stack_memory[-1] = value_from_alu
         return res
-    
+
     def latch_tods(self, value_from_memory: int):
         """
         Заменяет верхний элемент на значение value_from_memory.
@@ -70,14 +68,20 @@ class DataStack:
         if len(self.data_stack_memory) < 2:
             raise RuntimeError("Data stack underflow: swap requires 2 values")
 
-        self.data_stack_memory[-1], self.data_stack_memory[-2] = self.data_stack_memory[-2], self.data_stack_memory[-1]
+        (
+            self.data_stack_memory[-1],
+            self.data_stack_memory[-2],
+        ) = (
+            self.data_stack_memory[-2],
+            self.data_stack_memory[-1],
+        )
 
     def over(self):
         if len(self.data_stack_memory) < 2:
             raise RuntimeError("Data stack underflow: over requires 2 values")
 
         self.data_stack_memory.append(self.data_stack_memory[-2])
-    
+
     def dup(self):
         if len(self.data_stack_memory) < 1:
             raise RuntimeError("Data stack underflow: dup requires 1 value")
@@ -96,7 +100,7 @@ class ReturnStack:
             raise RuntimeError("Return stack underflow: TORS requested from empty stack")
 
         return self.data_stack_memory[-1]
-    
+
     def pop(self) -> int:
         if len(self.data_stack_memory) < 1:
             raise RuntimeError("Return stack underflow: pop from empty stack")
@@ -134,7 +138,7 @@ class DataPath:
         FROM_ALU = 1
         FROM_RS = 2
 
-    def signal_latch_nzvc(self, sel: SelNzvcIn, flags: int = None):
+    def signal_latch_nzvc(self, sel: SelNzvcIn, flags: int | None = None):
         if sel == self.SelNzvcIn.FROM_ALU:
             self.nzvc_register = flags
         if sel == self.SelNzvcIn.FROM_RS:
@@ -144,14 +148,16 @@ class DataPath:
         FROM_TODS = 1
         FROM_PC = 2
         FROM_0x5 = 3
-    
+
     def signal_write(self, sel: SelMemAdrIn = SelMemAdrIn.FROM_TODS):
         if sel == self.SelMemAdrIn.FROM_TODS:
             addr = self.data_stack.tods()
             value = self.data_stack.next()
-            self.memory.data[addr:addr + WORD_SIZE] = value.to_bytes(WORD_SIZE, byteorder="big", signed=True)
+            self.memory.data[addr:addr + WORD_SIZE] = value.to_bytes(
+                WORD_SIZE, byteorder="big", signed=True
+            )
 
-    def signal_read(self, sel: SelMemAdrIn, pc: int = None) -> int:
+    def signal_read(self, sel: SelMemAdrIn, pc: int | None = None) -> int:
         if sel == self.SelMemAdrIn.FROM_PC:
             return int.from_bytes(
                 self.memory.data[pc:pc + WORD_SIZE],
@@ -170,7 +176,7 @@ class DataPath:
                 byteorder="big",
                 signed=True,
             )
-        
+
     class SelLeftAlu(Enum):
         FROM_NEXT = 1
         ZERO = 2
@@ -303,7 +309,8 @@ class ControlUnit:
     "Регистр статуса прерываний. Инициализируется нулём, тк по дефолту прерывания запрещены."
 
     intr_req: bool = None
-    "Есть ли запрос на прерывание. Инициализируется False. При true гарантируется, что в IN лежит значение."
+    "Есть ли запрос на прерывание. Инициализируется False."
+    "При true гарантируется, что в IN лежит значение."
 
     in_intr_flag: bool = None
     "Работаем ли мы сейчас в прерывании. Мнимый флаг. Инициализируется False."
@@ -370,7 +377,11 @@ class ControlUnit:
 
         # проверка буфера входных данных (IO CONTROLLER)
         if self.data_path.input_buffer and self.data_path.input_buffer[0][0] == self.current_tick():
-            self.memory.data[IN_ADDR:IN_ADDR + WORD_SIZE] = self.data_path.input_buffer[0][1].to_bytes(WORD_SIZE, byteorder="big", signed=True)
+            self.memory.data[
+                IN_ADDR:IN_ADDR + WORD_SIZE
+            ] = self.data_path.input_buffer[0][1].to_bytes(
+                WORD_SIZE, byteorder="big", signed=True
+            )
             self.data_path.input_buffer.pop(0)
             self.intr_req = True
 
@@ -381,7 +392,7 @@ class ControlUnit:
             self.step = 1
             self.tick()
             return
-        
+
         bin_instr = self.instr_register
         opcode = decode_instr(bin_instr)
 
@@ -391,7 +402,10 @@ class ControlUnit:
 
         if opcode is Opcode.JUMP:
             if self.step == 1:
-                self.signal_latch_program_counter(sel_next=self.SelPcIn.FROM_MEMORY, sel_mem=self.data_path.SelMemAdrIn.FROM_PC)
+                self.signal_latch_program_counter(
+                    sel_next=self.SelPcIn.FROM_MEMORY,
+                    sel_mem=self.data_path.SelMemAdrIn.FROM_PC
+                )
                 self.step = 3
                 self.tick()
                 return
@@ -401,21 +415,27 @@ class ControlUnit:
                 flag = self.data_path.data_stack.pop()
 
                 if flag != 0:
-                    self.signal_latch_program_counter(sel_next=self.SelPcIn.FROM_MEMORY, sel_mem=self.data_path.SelMemAdrIn.FROM_PC)
+                    self.signal_latch_program_counter(
+                        sel_next=self.SelPcIn.FROM_MEMORY,
+                        sel_mem=self.data_path.SelMemAdrIn.FROM_PC
+                    )
                 else:
                     self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_4)
                 self.step = 3
                 self.tick()
                 return
-        
+
         if opcode is Opcode.CALL:
             if self.step == 1:
                 self.return_stack.push(self.program_counter)
-                self.signal_latch_program_counter(sel_next=self.SelPcIn.FROM_MEMORY, sel_mem=self.data_path.SelMemAdrIn.FROM_PC)
+                self.signal_latch_program_counter(
+                    sel_next=self.SelPcIn.FROM_MEMORY,
+                    sel_mem=self.data_path.SelMemAdrIn.FROM_PC
+                )
                 self.step = 3
                 self.tick()
                 return
-        
+
         if opcode is Opcode.RET:
             # два такта, сначала загружаем из rs, затем увеличиваем pc на 4
             if self.step == 1:
@@ -447,7 +467,9 @@ class ControlUnit:
                 self.tick()
                 return
 
-        if opcode in {Opcode.ADD, Opcode.SUB, Opcode.MUL, Opcode.DIV, Opcode.AND, Opcode.OR, Opcode.XOR}:
+        if opcode in {
+            Opcode.ADD, Opcode.SUB, Opcode.MUL, Opcode.DIV, Opcode.AND, Opcode.OR, Opcode.XOR
+        }:
             if self.step == 1:
                 res, flags = self.data_path.alu(opcode.value, self.data_path.SelLeftAlu.FROM_NEXT)
                 self.data_path.data_stack.pop(res)
@@ -464,7 +486,7 @@ class ControlUnit:
                 self.step = 3
                 self.tick()
                 return
-            
+
         if opcode is Opcode.LOAD:
             if self.step == 1:
                 data = self.data_path.signal_read(self.data_path.SelMemAdrIn.FROM_TODS)
@@ -536,13 +558,14 @@ class ControlUnit:
 
         if opcode is Opcode.PUSH:
             if self.step == 1:
-                data = self.data_path.signal_read(self.data_path.SelMemAdrIn.FROM_PC, self.program_counter)
+                data = self.data_path.signal_read(
+                    self.data_path.SelMemAdrIn.FROM_PC, self.program_counter
+                )
                 self.data_path.data_stack.push(data)
                 self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_4)
                 self.step = 3
                 self.tick()
                 return
-            
 
         if opcode is Opcode.PUSH_FLAGS:
             if self.step == 1:
@@ -556,7 +579,10 @@ class ControlUnit:
             if self.ei_register == 1 and self.intr_req is True:
                 # начинаем обработку прерывания
                 self.return_stack.push(self.program_counter)
-                self.signal_latch_program_counter(sel_next=self.SelPcIn.FROM_MEMORY, sel_mem=self.data_path.SelMemAdrIn.FROM_0x5)
+                self.signal_latch_program_counter(
+                    sel_next=self.SelPcIn.FROM_MEMORY,
+                    sel_mem=self.data_path.SelMemAdrIn.FROM_0x5
+                )
                 self.intr_req = False
                 self.step = 4
                 self.tick()
@@ -659,7 +685,7 @@ def parse_input(text: str) -> list[tuple[int, int]]:
                 raise ValueError(f"Number does not fit into int32: {value}")
 
         input_token.append((tick, value))
-    
+
     return input_token
 
 

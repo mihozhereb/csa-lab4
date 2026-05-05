@@ -6,7 +6,6 @@ from pathlib import Path
 
 from isa import Instruction, Opcode, Term, instr_size, to_bytes, to_hex
 
-
 WORD_SIZE = 4
 INIT_SIZE = 17
 INTERRUPT_HANDLER_NAME = "interruption_handler"
@@ -542,7 +541,10 @@ def program_to_hex(program: Program) -> str:
 
     for variable in program.variables.values():
         result.append(
-            f"{variable.address} - {variable.address:08X} - {bytes_hex(variable.data)} - var: {variable.name}"
+            f"{variable.address} - "
+            f"{variable.address:08X} - "
+            f"{bytes_hex(variable.data)} - "
+            f"var: {variable.name}"
         )
 
     for word in program.words.values():
