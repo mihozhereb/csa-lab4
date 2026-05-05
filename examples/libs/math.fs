@@ -7,11 +7,11 @@
 : -- ( a -- a-1 ) 1 - ;
 : NEG ( a -- -a ) 0 swap - ;
 
-: == ( a b -- flag ) - push_flags ZF & ;
-: 0= ( a -- flag ) 0 - push_flags ZF & ;
+: == ( a b -- flag ) - drop push_flags ZF & ;
+: 0= ( a -- flag ) 0 - drop push_flags ZF & ;
 : != ( a b -- flag ) == 0= ;
 
-: < ( a b -- flag ) - push_flags dup NF & swap VF & ^ ;
+: < ( a b -- flag ) - drop push_flags dup NF & swap VF & ^ ;
 : >= ( a b -- flag ) < 0= ;
 : > ( a b -- flag ) swap < ;
 : <= ( a b -- flag ) > 0= ;
