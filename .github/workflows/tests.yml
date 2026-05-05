@@ -23,6 +23,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run golden tests
+      - name: Ruff lint
+        run: |
+          ruff check .
+
+      - name: Ruff format check
+        run: |
+          ruff format --check .
+
+      - name: Golden tests
         run: |
           python -m pytest golden_test.py -v
