@@ -1,15 +1,22 @@
 import contextlib
 import io
 import logging
-import os
+import shutil
+import sys
 import tempfile
+from pathlib import Path
+import pytest
+
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
 
 import machine
-import pytest
 import translator
 
 
-MAX_LOG = 4000
+MAX_LOG = 700
 
 
 @pytest.mark.golden_test("golden/*.yml")
@@ -20,10 +27,12 @@ def test_translator_and_machine(golden, caplog):
     # Создаём временную папку для тестирования приложения.
     with tempfile.TemporaryDirectory() as tmpdirname:
         # Готовим имена файлов для входных и выходных данных.
-        source = os.path.join(tmpdirname, "source.fs")
-        input_stream = os.path.join(tmpdirname, "input.txt")
-        target = os.path.join(tmpdirname, "target.bin")
-        target_hex = os.path.join(tmpdirname, "target.bin.hex")
+        tmpdir = Path(tmpdirname)
+
+        source = tmpdir / "source.fs"
+        input_stream = tmpdir / "input.txt"
+        target = tmpdir / "target.bin"
+        target_hex = tmpdir / "target.bin.hex"
 
         # Записываем входные данные в файлы. Данные берутся из теста.
         with open(source, "w", encoding="utf-8") as file:
@@ -31,21 +40,32 @@ def test_translator_and_machine(golden, caplog):
         with open(input_stream, "w", encoding="utf-8") as file:
             file.write(golden["in_stdin"])
 
+        # Копируем библиотеки
+        libs_dir = tmpdir / "libs"
+        libs_dir.mkdir()
+        for lib_name in ("io.fs", "math.fs"):
+            lib_path = PROJECT_ROOT / "examples/libs" / lib_name
+
+            if lib_path.exists():
+                shutil.copy(lib_path, libs_dir / lib_name)
+
         # Запускаем транслятор и собираем весь стандартный вывод в переменную
         # stdout
         with contextlib.redirect_stdout(io.StringIO()) as stdout:
-            translator.main(source, target)
+            translator.main(str(source), str(target))
             print("============================================================")
-            machine.main(target, input_stream)
+            machine.main(
+                str(target),
+                str(input_stream),
+                limit=golden.get("in_limit") or 4000
+            )
 
         # Выходные данные также считываем в переменные.
-        with open(target, "rb") as file:
-            code = file.read()
-        with open(target_hex, encoding="utf-8") as file:
-            code_hex = file.read()
+        code = target.read_bytes().hex(" ").upper()
+        code_hex = target_hex.read_text(encoding="utf-8")
 
         # Проверяем, что ожидания соответствуют реальности.
         assert code == golden.out["out_code"]
         assert code_hex == golden.out["out_code_hex"]
         assert stdout.getvalue() == golden.out["out_stdout"]
-        assert caplog.text[0:MAX_LOG] + "EOF" == golden.out["out_log"]
+        assert '\n'.join(caplog.text.split('\n')[0:MAX_LOG]) + "EOF" == golden.out["out_log"]
