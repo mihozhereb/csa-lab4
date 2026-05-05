@@ -1,8 +1,10 @@
+import argparse
 from enum import Enum
 import logging
+import re
 import sys
 
-from isa import Opcode, decode_instr, opcode_to_binary
+from isa import Opcode, decode_instr
 
 
 INTR_VECTOR_ADDR = 5
@@ -12,19 +14,28 @@ WORD_SIZE = 4
 
 
 class Memory:
-    data: bytes = None
+    data: bytearray = None
 
     def __init__(self, memory: bytes):
-        self.data = memory
+        self.data = bytearray(memory)
 
 
 class DataStack:
     data_stack_memory: list[int] = None
 
+    def __init__(self):
+        self.data_stack_memory: list[int] = []
+
     def tods(self) -> int:
+        if len(self.data_stack_memory) < 1:
+            raise RuntimeError("Data stack underflow: TODS requested from empty stack")
+
         return self.data_stack_memory[-1]
 
     def next(self) -> int:
+        if len(self.data_stack_memory) < 2:
+            raise RuntimeError("Data stack underflow: NEXT requested, stack has less than 2 values")
+
         return self.data_stack_memory[-2]
 
     def pop(self, value_from_alu: int = None) -> int:
@@ -32,8 +43,14 @@ class DataStack:
         Удаляет верхний элемент стека и смещает next => tods.
         Если установлен value_from_alu, то value_from_alu => tods, а значение next затирается.
         """
+        if len(self.data_stack_memory) < 1:
+            raise RuntimeError("Data stack underflow: pop from empty stack")
+
         res = self.data_stack_memory.pop()
-        if value_from_alu:
+        if value_from_alu is not None:
+            if len(self.data_stack_memory) < 1:
+                raise RuntimeError("Data stack underflow: cannot write ALU result after pop")
+
             self.data_stack_memory[-1] = value_from_alu
         return res
     
@@ -41,28 +58,49 @@ class DataStack:
         """
         Заменяет верхний элемент на значение value_from_memory.
         """
+        if len(self.data_stack_memory) < 1:
+            raise RuntimeError("Data stack underflow: latch_tods on empty stack")
+
         self.data_stack_memory[-1] = value_from_memory
 
     def push(self, number: int):
         self.data_stack_memory.append(number)
 
     def swap(self):
-        self.data_stack_memory[0], self.data_stack_memory[1] = self.data_stack_memory[1], self.data_stack_memory[0]
+        if len(self.data_stack_memory) < 2:
+            raise RuntimeError("Data stack underflow: swap requires 2 values")
+
+        self.data_stack_memory[-1], self.data_stack_memory[-2] = self.data_stack_memory[-2], self.data_stack_memory[-1]
 
     def over(self):
+        if len(self.data_stack_memory) < 2:
+            raise RuntimeError("Data stack underflow: over requires 2 values")
+
         self.data_stack_memory.append(self.data_stack_memory[-2])
     
     def dup(self):
+        if len(self.data_stack_memory) < 1:
+            raise RuntimeError("Data stack underflow: dup requires 1 value")
+
         self.data_stack_memory.append(self.data_stack_memory[-1])
 
 
 class ReturnStack:
     data_stack_memory: list[int] = None
 
+    def __init__(self):
+        self.data_stack_memory: list[int] = []
+
     def tors(self) -> int:
+        if len(self.data_stack_memory) < 1:
+            raise RuntimeError("Return stack underflow: TORS requested from empty stack")
+
         return self.data_stack_memory[-1]
     
     def pop(self) -> int:
+        if len(self.data_stack_memory) < 1:
+            raise RuntimeError("Return stack underflow: pop from empty stack")
+
         return self.data_stack_memory.pop()
 
     def push(self, number: int):
@@ -87,6 +125,7 @@ class DataPath:
 
     def __init__(self, memory: Memory, input_buffer: list[tuple[int, int]]):
         self.memory = memory
+        self.data_stack = DataStack()
         self.nzvc_register = 0
         self.input_buffer = input_buffer
         self.output_buffer = []
@@ -112,16 +151,16 @@ class DataPath:
             value = self.data_stack.next()
             self.memory.data[addr:addr + WORD_SIZE] = value.to_bytes(WORD_SIZE, byteorder="big", signed=True)
 
-    def signal_read(self, sel: SelMemAdrIn) -> int:
+    def signal_read(self, sel: SelMemAdrIn, pc: int = None) -> int:
         if sel == self.SelMemAdrIn.FROM_PC:
             return int.from_bytes(
-                self.memory.data[self.program_counter:self.program_counter + WORD_SIZE],
+                self.memory.data[pc:pc + WORD_SIZE],
                 byteorder="big",
                 signed=True,
             )
         if sel == self.SelMemAdrIn.FROM_TODS:
             return int.from_bytes(
-                self.memory.data[self.data_path.data_stack.tods():self.data_path.data_stack.tods() + WORD_SIZE],
+                self.memory.data[self.data_stack.tods():self.data_stack.tods() + WORD_SIZE],
                 byteorder="big",
                 signed=True,
             )
@@ -281,6 +320,7 @@ class ControlUnit:
         self.ei_register = 0
         self.intr_req = False
         self.data_path = data_path
+        self.return_stack = ReturnStack()
         self._tick = 0
         self.step = 0
 
@@ -302,15 +342,18 @@ class ControlUnit:
         elif sel_next == self.SelPcIn.PLUS_4:
             self.program_counter += WORD_SIZE
         elif sel_next == self.SelPcIn.FROM_MEMORY:
-            data = self.data_path.signal_read(sel_mem)
-            # TODO: проверить на отрицательное число
+            data = self.data_path.signal_read(sel_mem, self.program_counter)
+            if data < 0:
+                raise ValueError(f"negative jump address: {data}")
+            if data >= len(self.memory.data):
+                raise ValueError(f"jump address out of memory: {data}")
             self.program_counter = data
         elif sel_next == self.SelPcIn.FROM_STACK:
             self.program_counter = self.return_stack.pop()
             pass
 
     def signal_latch_instr_register(self):
-        self.instr_register = self.data_path.signal_read(self.data_path.SelMemAdrIn.FROM_PC)[0]
+        self.instr_register = self.memory.data[self.program_counter]
 
     def signal_latch_ei_register(self, enabled: bool):
         if enabled:
@@ -322,7 +365,7 @@ class ControlUnit:
         """Основной цикл процессора. Декодирует и выполняет инструкцию."""
 
         # проверка буфера входных данных (IO CONTROLLER)
-        if self.data_path.input_buffer[0][0] == self.current_tick:
+        if self.data_path.input_buffer and self.data_path.input_buffer[0][0] == self.current_tick():
             self.memory.data[IN_ADDR:IN_ADDR + WORD_SIZE] = self.data_path.input_buffer[0][1].to_bytes(WORD_SIZE, byteorder="big", signed=True)
             self.data_path.input_buffer.pop(0)
             self.intr_req = True
@@ -351,7 +394,9 @@ class ControlUnit:
 
         if opcode is Opcode.JNZ:
             if self.step == 1:
-                if self.data_path.stack.tods == 0:
+                flag = self.data_path.data_stack.pop()
+
+                if flag != 0:
                     self.signal_latch_program_counter(sel_next=self.SelPcIn.FROM_MEMORY, sel_mem=self.data_path.SelMemAdrIn.FROM_PC)
                 else:
                     self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_4)
@@ -360,7 +405,13 @@ class ControlUnit:
                 return
         
         if opcode is Opcode.CALL:
+            # два такта, сначала увеличиваем pc на 4, сохраняем, потом подставляем адрес процедуры
             if self.step == 1:
+                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_4)
+                self.step = 2
+                self.tick()
+                return
+            if self.step == 2:
                 self.return_stack.push(self.program_counter)
                 self.signal_latch_program_counter(sel_next=self.SelPcIn.FROM_MEMORY, sel_mem=self.data_path.SelMemAdrIn.FROM_PC)
                 self.step = 3
@@ -378,7 +429,8 @@ class ControlUnit:
             # два такта, чтобы снять два значения со стека
             if self.step == 1:
                 data = self.return_stack.pop()
-                # TODO: проверить корректность флага
+                if data < 0 or data > 0xF:
+                    raise ValueError(f"invalid NZVC value from return stack: {data}")
                 self.data_path.signal_latch_nzvc(self.data_path.SelNzvcIn.FROM_RS, data)
                 self.step = 2
                 self.tick()
@@ -489,9 +541,9 @@ class ControlUnit:
 
         if opcode is Opcode.PUSH:
             if self.step == 1:
-                data = self.data_path.signal_read(self.data_path.SelMemAdrIn.FROM_PC)
+                data = self.data_path.signal_read(self.data_path.SelMemAdrIn.FROM_PC, self.program_counter)
                 self.data_path.data_stack.push(data)
-                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
+                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_4)
                 self.step = 3
                 self.tick()
                 return
@@ -527,32 +579,39 @@ class ControlUnit:
             self.tick()
             pass
 
-    # def __repr__(self):
-    #     """Вернуть строковое представление состояния процессора."""
-    #     state_repr = "TICK: {:3} PC: {:3}/{} ADDR: {:3} MEM_OUT: {} ACC: {}".format(
-    #         self._tick,
-    #         self.program_counter,
-    #         self.step,
-    #         self.data_path.data_address,
-    #         self.data_path.data_memory.data[self.data_path.data_address],
-    #         self.data_path.acc,
-    #     )
+def __repr__(self):
+    try:
+        opcode = decode_instr(self.instr_register)
+        instr = opcode.value
 
-    #     instr = self.program[self.program_counter]
-    #     opcode = instr["opcode"]
-    #     instr_repr = str(opcode)
+        if opcode in {Opcode.PUSH, Opcode.JUMP, Opcode.JNZ, Opcode.CALL}:
+            arg = self.data_path.signal_read(
+                self.data_path.SelMemAdrIn.FROM_PC,
+                self.program_counter,
+            )
+            instr = f"{instr} {arg}"
 
-    #     if "arg" in instr:
-    #         instr_repr += " {}".format(instr["arg"])
+    except Exception:
+        instr = f"unknown(0x{self.instr_register:02X})"
 
-    #     instr_hex = f"{opcode_to_binary[opcode] << 28 | (instr.get('arg', 0) & 0x0FFFFFFF):08X}"
+    return (
+        f"TICK: {self._tick:04} | "
+        f"PC: {self.program_counter:04} | "
+        f"STEP: {self.step} | "
+        f"IR: 0x{self.instr_register:02X} ({instr}) | "
+        f"NZVC: {self.data_path.nzvc_register:04b} | "
+        f"EI: {self.ei_register} | "
+        f"INTR: {int(self.intr_req)} | "
+        f"DS: {self.data_path.data_stack.data_stack_memory} | "
+        f"RS: {self.return_stack.data_stack_memory} | "
+        f"OUT: {self.data_path.output_buffer}"
+    )
 
-    #     return "{} \t{} [{}]".format(state_repr, instr_repr, instr_hex)
 
-
-def simulation(program: bytes, input_tokens: list[tuple], data_memory_size: int, limit: int):
-    data_path = DataPath(data_memory_size, input_tokens)
-    control_unit = ControlUnit(program, data_path)
+def simulation(program: bytes, input_tokens: list[tuple[int, int]], limit: int):
+    memory = Memory(program)
+    data_path = DataPath(memory, input_tokens)
+    control_unit = ControlUnit(memory, data_path)
 
     logging.debug("%s", control_unit)
     try:
@@ -566,25 +625,54 @@ def simulation(program: bytes, input_tokens: list[tuple], data_memory_size: int,
 
     if control_unit._tick >= limit:
         logging.warning("Limit exceeded!")
-    logging.info("output_buffer: %s", repr("".join(data_path.output_buffer)))
-    return "".join(data_path.output_buffer), control_unit.current_tick()
+    output = "".join(chr(value) for value in data_path.output_buffer)
+    logging.info("output_buffer: %s", repr(output))
+    return output, control_unit.current_tick()
 
 
-def main(code_file, input_file):
+def parse_input(text: str) -> list[tuple[int, int]]:
+    pattern = re.compile(
+        r"\(\s*(\d+)\s*,\s*(?:'((?:\\.|[^']))'|(-?\d+))\s*\)"
+    )
+
+    input_token = []
+
+    for match in pattern.finditer(text):
+        tick_str, char_str, num_str = match.groups()
+
+        tick = int(tick_str)
+
+        if char_str is not None:
+            value = bytes(char_str, "utf-8").decode("unicode_escape")
+
+            if len(value) != 1:
+                raise ValueError(f"Invalid char: {value!r}")
+
+            value = ord(value)
+
+            if not 0 <= value <= 127:
+                raise ValueError(f"Char must be ASCII: {value!r}")
+
+        else:
+            value = int(num_str)
+
+            if not -(2**31) <= value <= 2**31 - 1:
+                raise ValueError(f"Number does not fit into int32: {value}")
+
+        input_token.append((tick, value))
+
+
+def main(code_file, input_file, limit=2000):
     with open(code_file, "rb") as file:
         binary_code = file.read()
 
     with open(input_file, encoding="utf-8") as file:
         input_text = file.read()
-        input_token = []
-        for char in input_text:
-            input_token.append(char)
 
     output, ticks = simulation(
         binary_code,
-        input_tokens=input_token,
-        data_memory_size=100,
-        limit=2000,
+        input_tokens=parse_input(input_text),
+        limit=limit,
     )
 
     print("".join(output))
@@ -593,6 +681,12 @@ def main(code_file, input_file):
 
 if __name__ == "__main__":
     logging.getLogger().setLevel(logging.DEBUG)
-    assert len(sys.argv) == 3, "Wrong arguments: machine.py <code_file> <input_file>"
-    _, code_file, input_file = sys.argv
-    main(code_file, input_file)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("code_file")
+    parser.add_argument("input_file")
+    parser.add_argument("--limit", type=int, default=2000)
+
+    args = parser.parse_args()
+
+    main(args.code_file, args.input_file, args.limit)

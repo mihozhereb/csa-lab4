@@ -165,6 +165,8 @@ def is_number(word: str) -> bool:
 
 
 def encode_word(value: int) -> bytes:
+    if not -(2 ** 31) <= value <= 2 ** 31 - 1:
+        raise TranslationError(f"number does not fit into int32: {value}")
     return value.to_bytes(WORD_SIZE, byteorder="big", signed=True)
 
 

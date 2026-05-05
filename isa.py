@@ -171,7 +171,7 @@ def to_hex(code: list[Instruction], base_addr: int = 0) -> str:
     return "\n".join(result)
 
 
-def decode_instr(opcode_bin: bytes) -> Opcode:
+def decode_instr(opcode_bin: int) -> Opcode:
     if opcode_bin not in binary_to_opcode:
         raise ValueError(f"Unknown opcode 0x{opcode_bin:02X}")
     
