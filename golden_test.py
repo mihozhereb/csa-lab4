@@ -53,11 +53,7 @@ def test_translator_and_machine(golden, caplog):
         with contextlib.redirect_stdout(io.StringIO()) as stdout:
             translator.main(str(source), str(target))
             print("============================================================")
-            machine.main(
-                str(target),
-                str(input_stream),
-                limit=golden.get("in_limit") or 4000
-            )
+            machine.main(str(target), str(input_stream), limit=golden.get("in_limit") or 4000)
 
         # Выходные данные также считываем в переменные.
         code = target.read_bytes().hex(" ").upper()
@@ -67,4 +63,4 @@ def test_translator_and_machine(golden, caplog):
         assert code == golden.out["out_code"]
         assert code_hex == golden.out["out_code_hex"]
         assert stdout.getvalue() == golden.out["out_stdout"]
-        assert '\n'.join(caplog.text.split('\n')[0:MAX_LOG]) + "EOF" == golden.out["out_log"]
+        assert "\n".join(caplog.text.split("\n")[0:MAX_LOG]) + "EOF" == golden.out["out_log"]

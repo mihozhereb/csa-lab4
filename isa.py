@@ -62,32 +62,28 @@ opcode_to_binary = {
     Opcode.MUL: 0x03,
     Opcode.DIV: 0x04,
     Opcode.AND: 0x05,
-    Opcode.OR:  0x06,
+    Opcode.OR: 0x06,
     Opcode.XOR: 0x07,
     Opcode.INV: 0x08,
-
     # Stack
-    Opcode.DUP:         0x20,
-    Opcode.DROP:        0x21,
-    Opcode.SWAP:        0x22,
-    Opcode.OVER:        0x23,
-    Opcode.PUSH_FLAGS:  0x24,
-    Opcode.PUSH:        0x25,
-
+    Opcode.DUP: 0x20,
+    Opcode.DROP: 0x21,
+    Opcode.SWAP: 0x22,
+    Opcode.OVER: 0x23,
+    Opcode.PUSH_FLAGS: 0x24,
+    Opcode.PUSH: 0x25,
     # Memory
-    Opcode.LOAD:  0x40,
+    Opcode.LOAD: 0x40,
     Opcode.STORE: 0x41,
-
     # Control flow
     Opcode.JUMP: 0x60,
-    Opcode.JNZ:  0x61,
+    Opcode.JNZ: 0x61,
     Opcode.CALL: 0x62,
-    Opcode.RET:  0x63,
-
+    Opcode.RET: 0x63,
     # System / interrupts
     Opcode.HALT: 0x80,
-    Opcode.DI:   0x81,
-    Opcode.EI:   0x82,
+    Opcode.DI: 0x81,
+    Opcode.EI: 0x82,
     Opcode.IRET: 0x83,
 }
 
@@ -100,22 +96,18 @@ binary_to_opcode = {
     0x06: Opcode.OR,
     0x07: Opcode.XOR,
     0x08: Opcode.INV,
-
     0x20: Opcode.DUP,
     0x21: Opcode.DROP,
     0x22: Opcode.SWAP,
     0x23: Opcode.OVER,
     0x24: Opcode.PUSH_FLAGS,
     0x25: Opcode.PUSH,
-
     0x40: Opcode.LOAD,
     0x41: Opcode.STORE,
-
     0x60: Opcode.JUMP,
     0x61: Opcode.JNZ,
     0x62: Opcode.CALL,
     0x63: Opcode.RET,
-
     0x80: Opcode.HALT,
     0x81: Opcode.DI,
     0x82: Opcode.EI,

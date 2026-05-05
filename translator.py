@@ -20,17 +20,13 @@ BUILTINS = {
     "|": Opcode.OR,
     "^": Opcode.XOR,
     "~": Opcode.INV,
-
     "dup": Opcode.DUP,
     "drop": Opcode.DROP,
     "swap": Opcode.SWAP,
     "over": Opcode.OVER,
-
     "@": Opcode.LOAD,
     "!": Opcode.STORE,
-
     "push_flags": Opcode.PUSH_FLAGS,
-
     "di": Opcode.DI,
     "ei": Opcode.EI,
 }
@@ -164,7 +160,7 @@ def is_number(word: str) -> bool:
 
 
 def encode_word(value: int) -> bytes:
-    if not -(2 ** 31) <= value <= 2 ** 31 - 1:
+    if not -(2**31) <= value <= 2**31 - 1:
         raise TranslationError(f"number does not fit into int32: {value}")
     return value.to_bytes(WORD_SIZE, byteorder="big", signed=True)
 
@@ -489,9 +485,7 @@ def init_data(program: Program) -> bytes:
 
     result = bytearray()
 
-    result.extend(to_bytes([
-        Instruction(Opcode.JUMP, Term(0, 0, "init"), program.main_address)
-    ]))
+    result.extend(to_bytes([Instruction(Opcode.JUMP, Term(0, 0, "init"), program.main_address)]))
 
     result.extend(handler_addr.to_bytes(4, byteorder="big", signed=True))
 
@@ -520,24 +514,16 @@ def program_to_hex(program: Program) -> str:
 
     init = init_data(program)
 
-    result.append(
-        f"0 - 00000000 - {bytes_hex(init[:5])} - init: jump {program.main_address}"
-    )
+    result.append(f"0 - 00000000 - {bytes_hex(init[:5])} - init: jump {program.main_address}")
 
     handler = program.words.get(INTERRUPT_HANDLER_NAME)
     handler_addr = handler.address if handler is not None else 0
 
-    result.append(
-        f"5 - 00000005 - {bytes_hex(init[5:9])} - init: interrupt vector {handler_addr}"
-    )
+    result.append(f"5 - 00000005 - {bytes_hex(init[5:9])} - init: interrupt vector {handler_addr}")
 
-    result.append(
-        f"9 - 00000009 - {bytes_hex(init[9:13])} - init: io in reserved"
-    )
+    result.append(f"9 - 00000009 - {bytes_hex(init[9:13])} - init: io in reserved")
 
-    result.append(
-        f"13 - 0000000D - {bytes_hex(init[13:17])} - init: io out reserved"
-    )
+    result.append(f"13 - 0000000D - {bytes_hex(init[13:17])} - init: io out reserved")
 
     for variable in program.variables.values():
         result.append(

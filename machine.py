@@ -153,26 +153,26 @@ class DataPath:
         if sel == self.SelMemAdrIn.FROM_TODS:
             addr = self.data_stack.tods()
             value = self.data_stack.next()
-            self.memory.data[addr:addr + WORD_SIZE] = value.to_bytes(
+            self.memory.data[addr : addr + WORD_SIZE] = value.to_bytes(
                 WORD_SIZE, byteorder="big", signed=True
             )
 
     def signal_read(self, sel: SelMemAdrIn, pc: int | None = None) -> int:
         if sel == self.SelMemAdrIn.FROM_PC:
             return int.from_bytes(
-                self.memory.data[pc:pc + WORD_SIZE],
+                self.memory.data[pc : pc + WORD_SIZE],
                 byteorder="big",
                 signed=True,
             )
         if sel == self.SelMemAdrIn.FROM_TODS:
             return int.from_bytes(
-                self.memory.data[self.data_stack.tods():self.data_stack.tods() + WORD_SIZE],
+                self.memory.data[self.data_stack.tods() : self.data_stack.tods() + WORD_SIZE],
                 byteorder="big",
                 signed=True,
             )
         if sel == self.SelMemAdrIn.FROM_0x5:
             return int.from_bytes(
-                self.memory.data[INTR_VECTOR_ADDR:INTR_VECTOR_ADDR + WORD_SIZE],
+                self.memory.data[INTR_VECTOR_ADDR : INTR_VECTOR_ADDR + WORD_SIZE],
                 byteorder="big",
                 signed=True,
             )
@@ -246,8 +246,9 @@ class DataPath:
             result = self.to_int32(result_u)
 
             carry = raw > 0xFFFFFFFF
-            overflow = ((left_s >= 0 and right_s >= 0 and result < 0) or
-                        (left_s < 0 and right_s < 0 and result >= 0))
+            overflow = (left_s >= 0 and right_s >= 0 and result < 0) or (
+                left_s < 0 and right_s < 0 and result >= 0
+            )
 
         elif operation == Opcode.SUB.value:
             raw = left_u - right_u
@@ -256,14 +257,15 @@ class DataPath:
 
             # C = borrow при вычитании
             carry = left_u < right_u
-            overflow = ((left_s >= 0 and right_s < 0 and result < 0) or
-                        (left_s < 0 and right_s >= 0 and result >= 0))
+            overflow = (left_s >= 0 and right_s < 0 and result < 0) or (
+                left_s < 0 and right_s >= 0 and result >= 0
+            )
 
         elif operation == Opcode.MUL.value:
             raw = left_s * right_s
             result = self.to_int32(raw)
 
-            overflow = raw < -(2 ** 31) or raw > 2 ** 31 - 1
+            overflow = raw < -(2**31) or raw > 2**31 - 1
             carry = raw < 0 or raw > 0xFFFFFFFF
 
         elif operation == Opcode.DIV.value:
@@ -273,7 +275,7 @@ class DataPath:
             raw = int(left_s / right_s)
             result = self.to_int32(raw)
 
-            overflow = raw < -(2 ** 31) or raw > 2 ** 31 - 1
+            overflow = raw < -(2**31) or raw > 2**31 - 1
             carry = False
 
         elif operation == Opcode.AND.value:
@@ -377,11 +379,9 @@ class ControlUnit:
 
         # проверка буфера входных данных (IO CONTROLLER)
         if self.data_path.input_buffer and self.data_path.input_buffer[0][0] == self.current_tick():
-            self.memory.data[
-                IN_ADDR:IN_ADDR + WORD_SIZE
-            ] = self.data_path.input_buffer[0][1].to_bytes(
-                WORD_SIZE, byteorder="big", signed=True
-            )
+            self.memory.data[IN_ADDR : IN_ADDR + WORD_SIZE] = self.data_path.input_buffer[0][
+                1
+            ].to_bytes(WORD_SIZE, byteorder="big", signed=True)
             self.data_path.input_buffer.pop(0)
             self.intr_req = True
 
@@ -403,8 +403,7 @@ class ControlUnit:
         if opcode is Opcode.JUMP:
             if self.step == 1:
                 self.signal_latch_program_counter(
-                    sel_next=self.SelPcIn.FROM_MEMORY,
-                    sel_mem=self.data_path.SelMemAdrIn.FROM_PC
+                    sel_next=self.SelPcIn.FROM_MEMORY, sel_mem=self.data_path.SelMemAdrIn.FROM_PC
                 )
                 self.step = 3
                 self.tick()
@@ -417,7 +416,7 @@ class ControlUnit:
                 if flag != 0:
                     self.signal_latch_program_counter(
                         sel_next=self.SelPcIn.FROM_MEMORY,
-                        sel_mem=self.data_path.SelMemAdrIn.FROM_PC
+                        sel_mem=self.data_path.SelMemAdrIn.FROM_PC,
                     )
                 else:
                     self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_4)
@@ -429,8 +428,7 @@ class ControlUnit:
             if self.step == 1:
                 self.return_stack.push(self.program_counter)
                 self.signal_latch_program_counter(
-                    sel_next=self.SelPcIn.FROM_MEMORY,
-                    sel_mem=self.data_path.SelMemAdrIn.FROM_PC
+                    sel_next=self.SelPcIn.FROM_MEMORY, sel_mem=self.data_path.SelMemAdrIn.FROM_PC
                 )
                 self.step = 3
                 self.tick()
@@ -468,7 +466,13 @@ class ControlUnit:
                 return
 
         if opcode in {
-            Opcode.ADD, Opcode.SUB, Opcode.MUL, Opcode.DIV, Opcode.AND, Opcode.OR, Opcode.XOR
+            Opcode.ADD,
+            Opcode.SUB,
+            Opcode.MUL,
+            Opcode.DIV,
+            Opcode.AND,
+            Opcode.OR,
+            Opcode.XOR,
         }:
             if self.step == 1:
                 res, flags = self.data_path.alu(opcode.value, self.data_path.SelLeftAlu.FROM_NEXT)
@@ -580,8 +584,7 @@ class ControlUnit:
                 # начинаем обработку прерывания
                 self.return_stack.push(self.program_counter)
                 self.signal_latch_program_counter(
-                    sel_next=self.SelPcIn.FROM_MEMORY,
-                    sel_mem=self.data_path.SelMemAdrIn.FROM_0x5
+                    sel_next=self.SelPcIn.FROM_MEMORY, sel_mem=self.data_path.SelMemAdrIn.FROM_0x5
                 )
                 self.intr_req = False
                 self.step = 4
@@ -612,7 +615,7 @@ class ControlUnit:
                         self.program_counter,
                     )
                 else:
-                    arg = ''
+                    arg = ""
                 instr = f"{instr} {arg}"
 
         except Exception:
@@ -656,9 +659,7 @@ def simulation(program: bytes, input_tokens: list[tuple[int, int]], limit: int):
 
 
 def parse_input(text: str) -> list[tuple[int, int]]:
-    pattern = re.compile(
-        r"\(\s*(\d+)\s*,\s*(?:'((?:\\.|[^']))'|(-?\d+))\s*\)"
-    )
+    pattern = re.compile(r"\(\s*(\d+)\s*,\s*(?:'((?:\\.|[^']))'|(-?\d+))\s*\)")
 
     input_token = []
 
