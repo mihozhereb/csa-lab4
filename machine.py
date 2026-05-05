@@ -303,7 +303,10 @@ class ControlUnit:
     "Регистр статуса прерываний. Инициализируется нулём, тк по дефолту прерывания запрещены."
 
     intr_req: bool = None
-    "Есть ли запрос на прерывание. Инициализируется False. При true гарантируется, что в IN лежит значение"
+    "Есть ли запрос на прерывание. Инициализируется False. При true гарантируется, что в IN лежит значение."
+
+    in_intr_flag: bool = None
+    "Работаем ли мы сейчас в прерывании. Мнимый флаг. Инициализируется False."
 
     data_path: DataPath = None
     "Блок обработки данных."
@@ -319,6 +322,7 @@ class ControlUnit:
         self.instr_register = 0
         self.ei_register = 0
         self.intr_req = False
+        self.in_intr_flag = False
         self.data_path = data_path
         self.return_stack = ReturnStack()
         self._tick = 0
@@ -405,13 +409,7 @@ class ControlUnit:
                 return
         
         if opcode is Opcode.CALL:
-            # два такта, сначала увеличиваем pc на 4, сохраняем, потом подставляем адрес процедуры
             if self.step == 1:
-                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_4)
-                self.step = 2
-                self.tick()
-                return
-            if self.step == 2:
                 self.return_stack.push(self.program_counter)
                 self.signal_latch_program_counter(sel_next=self.SelPcIn.FROM_MEMORY, sel_mem=self.data_path.SelMemAdrIn.FROM_PC)
                 self.step = 3
@@ -419,8 +417,14 @@ class ControlUnit:
                 return
         
         if opcode is Opcode.RET:
+            # два такта, сначала загружаем из rs, затем увеличиваем pc на 4
             if self.step == 1:
                 self.signal_latch_program_counter(sel_next=self.SelPcIn.FROM_STACK)
+                self.step = 2
+                self.tick()
+                return
+            if self.step == 2:
+                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_4)
                 self.step = 3
                 self.tick()
                 return
@@ -438,6 +442,7 @@ class ControlUnit:
             if self.step == 2:
                 self.signal_latch_program_counter(sel_next=self.SelPcIn.FROM_STACK)
                 self.signal_latch_ei_register(True)
+                self.in_intr_flag = False
                 self.step = 3
                 self.tick()
                 return
@@ -447,7 +452,6 @@ class ControlUnit:
                 res, flags = self.data_path.alu(opcode.value, self.data_path.SelLeftAlu.FROM_NEXT)
                 self.data_path.data_stack.pop(res)
                 self.data_path.signal_latch_nzvc(self.data_path.SelNzvcIn.FROM_ALU, flags)
-                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
                 self.step = 3
                 self.tick()
                 return
@@ -457,7 +461,6 @@ class ControlUnit:
                 res, flags = self.data_path.alu(opcode.value, self.data_path.SelLeftAlu.ZERO)
                 self.data_path.data_stack.pop(res)
                 self.data_path.signal_latch_nzvc(self.data_path.SelNzvcIn.FROM_ALU, flags)
-                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
                 self.step = 3
                 self.tick()
                 return
@@ -466,7 +469,6 @@ class ControlUnit:
             if self.step == 1:
                 data = self.data_path.signal_read(self.data_path.SelMemAdrIn.FROM_TODS)
                 self.data_path.data_stack.latch_tods(data)
-                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
                 self.step = 3
                 self.tick()
                 return
@@ -486,7 +488,6 @@ class ControlUnit:
                 return
             if self.step == 2:
                 self.data_path.data_stack.pop()
-                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
                 self.step = 3
                 self.tick()
                 return
@@ -494,7 +495,6 @@ class ControlUnit:
         if opcode is Opcode.DI:
             if self.step == 1:
                 self.signal_latch_ei_register(False)
-                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
                 self.step = 3
                 self.tick()
                 return
@@ -502,7 +502,6 @@ class ControlUnit:
         if opcode is Opcode.EI:
             if self.step == 1:
                 self.signal_latch_ei_register(True)
-                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
                 self.step = 3
                 self.tick()
                 return
@@ -510,7 +509,6 @@ class ControlUnit:
         if opcode is Opcode.DROP:
             if self.step == 1:
                 self.data_path.data_stack.pop()
-                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
                 self.step = 3
                 self.tick()
                 return
@@ -518,7 +516,6 @@ class ControlUnit:
         if opcode is Opcode.SWAP:
             if self.step == 1:
                 self.data_path.data_stack.swap()
-                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
                 self.step = 3
                 self.tick()
                 return
@@ -526,7 +523,6 @@ class ControlUnit:
         if opcode is Opcode.OVER:
             if self.step == 1:
                 self.data_path.data_stack.over()
-                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
                 self.step = 3
                 self.tick()
                 return
@@ -534,7 +530,6 @@ class ControlUnit:
         if opcode is Opcode.DUP:
             if self.step == 1:
                 self.data_path.data_stack.dup()
-                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
                 self.step = 3
                 self.tick()
                 return
@@ -552,7 +547,6 @@ class ControlUnit:
         if opcode is Opcode.PUSH_FLAGS:
             if self.step == 1:
                 self.data_path.data_stack.push(self.data_path.nzvc_register)
-                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
                 self.step = 3
                 self.tick()
                 return
@@ -563,6 +557,7 @@ class ControlUnit:
                 # начинаем обработку прерывания
                 self.return_stack.push(self.program_counter)
                 self.signal_latch_program_counter(sel_next=self.SelPcIn.FROM_MEMORY, sel_mem=self.data_path.SelMemAdrIn.FROM_0x5)
+                self.intr_req = False
                 self.step = 4
                 self.tick()
                 return
@@ -571,41 +566,45 @@ class ControlUnit:
                 self.tick()
                 return
         if self.step == 4:
-            # продолжаем прерывание
             self.return_stack.push(self.data_path.nzvc_register)
             # выключаем прерывания
             self.signal_latch_ei_register(False)
+            self.in_intr_flag = True
             self.step = 0
             self.tick()
             pass
 
-def __repr__(self):
-    try:
-        opcode = decode_instr(self.instr_register)
-        instr = opcode.value
+    def __repr__(self):
+        try:
+            opcode = decode_instr(self.instr_register)
+            instr = opcode.value
 
-        if opcode in {Opcode.PUSH, Opcode.JUMP, Opcode.JNZ, Opcode.CALL}:
-            arg = self.data_path.signal_read(
-                self.data_path.SelMemAdrIn.FROM_PC,
-                self.program_counter,
-            )
-            instr = f"{instr} {arg}"
+            if opcode in {Opcode.PUSH, Opcode.JUMP, Opcode.JNZ, Opcode.CALL}:
+                if self.step == 1:
+                    arg = self.data_path.signal_read(
+                        self.data_path.SelMemAdrIn.FROM_PC,
+                        self.program_counter,
+                    )
+                else:
+                    arg = ''
+                instr = f"{instr} {arg}"
 
-    except Exception:
-        instr = f"unknown(0x{self.instr_register:02X})"
+        except Exception:
+            instr = f"unknown(0x{self.instr_register:02X})"
 
-    return (
-        f"TICK: {self._tick:04} | "
-        f"PC: {self.program_counter:04} | "
-        f"STEP: {self.step} | "
-        f"IR: 0x{self.instr_register:02X} ({instr}) | "
-        f"NZVC: {self.data_path.nzvc_register:04b} | "
-        f"EI: {self.ei_register} | "
-        f"INTR: {int(self.intr_req)} | "
-        f"DS: {self.data_path.data_stack.data_stack_memory} | "
-        f"RS: {self.return_stack.data_stack_memory} | "
-        f"OUT: {self.data_path.output_buffer}"
-    )
+        return (
+            f"TICK: {self._tick:04} | "
+            f"PC: {self.program_counter:04} | "
+            f"STEP: {(self.step - 1) % 4} | "
+            f"IR: 0x{self.instr_register:02X} ({instr}) | "
+            f"NZVC: {self.data_path.nzvc_register:04b} | "
+            f"EI: {self.ei_register} | "
+            f"INTR: {int(self.intr_req)} | "
+            f"IN INTR: {int(self.in_intr_flag)} | "
+            f"DS: {self.data_path.data_stack.data_stack_memory} | "
+            f"RS: {self.return_stack.data_stack_memory} | "
+            f"OUT: {self.data_path.output_buffer}"
+        )
 
 
 def simulation(program: bytes, input_tokens: list[tuple[int, int]], limit: int):
@@ -660,9 +659,11 @@ def parse_input(text: str) -> list[tuple[int, int]]:
                 raise ValueError(f"Number does not fit into int32: {value}")
 
         input_token.append((tick, value))
+    
+    return input_token
 
 
-def main(code_file, input_file, limit=2000):
+def main(code_file, input_file, limit=4000):
     with open(code_file, "rb") as file:
         binary_code = file.read()
 
@@ -685,7 +686,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("code_file")
     parser.add_argument("input_file")
-    parser.add_argument("--limit", type=int, default=2000)
+    parser.add_argument("--limit", type=int, default=4000)
 
     args = parser.parse_args()
 

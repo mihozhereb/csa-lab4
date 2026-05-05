@@ -545,11 +545,18 @@ def program_to_hex(program: Program) -> str:
             f"{variable.address} - {variable.address:08X} - {bytes_hex(variable.data)} - var: {variable.name}"
         )
 
-    code = program_code(program)
-    code_hex = to_hex(code, base_addr=program.code_start)
+    for word in program.words.values():
+        word_hex = to_hex(word.code, base_addr=word.address)
 
-    if code_hex:
-        result.append(code_hex)
+        if word_hex:
+            lines = word_hex.splitlines()
+            lines[0] += f" - word: {word.name}"
+            result.append("\n".join(lines))
+
+    main_hex = to_hex(program.main_code, base_addr=program.main_address)
+
+    if main_hex:
+        result.append(main_hex)
 
     return "\n".join(result)
 
