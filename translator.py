@@ -34,7 +34,6 @@ BUILTINS = {
 
     "di": Opcode.DI,
     "ei": Opcode.EI,
-    "iret": Opcode.IRET
 }
 
 
@@ -263,7 +262,6 @@ def parse_program(terms: list[Term], data_start: int = 0) -> Program:
 
             while i < len(terms):
                 if terms[i].word == ";":
-                    # TODO: add ret and iret
                     break
 
                 body.append(terms[i])
@@ -445,7 +443,10 @@ def assign_addresses(program: Program, data_start: int) -> None:
             current,
         )
 
-        word.code.append(Instruction(Opcode.RET, word.term))
+        if word.name == INTERRUPT_HANDLER_NAME:
+            word.code.append(Instruction(Opcode.IRET, word.term))
+        else:
+            word.code.append(Instruction(Opcode.RET, word.term))
 
         current += sum(instr_size(instr) for instr in word.code)
 

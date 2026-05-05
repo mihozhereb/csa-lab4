@@ -5,17 +5,17 @@ import sys
 from isa import Opcode, decode_instr, opcode_to_binary
 
 
+INTR_VECTOR_ADDR = 5
+IN_ADDR = 9
+OUT_ADDR = 13
+WORD_SIZE = 4
+
+
 class Memory:
     data: bytes = None
 
     def __init__(self, memory: bytes):
         self.data = memory
-
-    # def read(self, data_address: int) -> int:
-    #     return self.data[data_address]
-
-    # def write(self, data_address: int, value: int):
-    #     self.data[data_address] = value
 
 
 class DataStack:
@@ -28,10 +28,20 @@ class DataStack:
         return self.data_stack_memory[-2]
 
     def pop(self, value_from_alu: int = None) -> int:
+        """
+        Удаляет верхний элемент стека и смещает next => tods.
+        Если установлен value_from_alu, то value_from_alu => tods, а значение next затирается.
+        """
         res = self.data_stack_memory.pop()
         if value_from_alu:
             self.data_stack_memory[-1] = value_from_alu
         return res
+    
+    def latch_tods(self, value_from_memory: int):
+        """
+        Заменяет верхний элемент на значение value_from_memory.
+        """
+        self.data_stack_memory[-1] = value_from_memory
 
     def push(self, number: int):
         self.data_stack_memory.append(number)
@@ -81,45 +91,163 @@ class DataPath:
         self.input_buffer = input_buffer
         self.output_buffer = []
 
-    # def signal_latch_data_addr(self, sel):
-    #     assert sel in {Opcode.LEFT.value, Opcode.RIGHT.value}, "internal error, incorrect selector: {}".format(sel)
+    class SelNzvcIn(Enum):
+        FROM_ALU = 1
+        FROM_RS = 2
 
-    #     if sel == Opcode.LEFT.value:
-    #         self.data_address -= 1
-    #     elif sel == Opcode.RIGHT.value:
-    #         self.data_address += 1
+    def signal_latch_nzvc(self, sel: SelNzvcIn, flags: int = None):
+        if sel == self.SelNzvcIn.FROM_ALU:
+            self.nzvc_register = flags
+        if sel == self.SelNzvcIn.FROM_RS:
+            self.nzvc_register = flags
 
-    #     assert 0 <= self.data_address < self.data_memory_size, "out of memory: {}".format(self.data_address)
+    class SelMemAdrIn(Enum):
+        FROM_TODS = 1
+        FROM_PC = 2
+        FROM_0x5 = 3
+    
+    def signal_write(self, sel: SelMemAdrIn = SelMemAdrIn.FROM_TODS):
+        if sel == self.SelMemAdrIn.FROM_TODS:
+            addr = self.data_stack.tods()
+            value = self.data_stack.next()
+            self.memory.data[addr:addr + WORD_SIZE] = value.to_bytes(WORD_SIZE, byteorder="big", signed=True)
 
-    def signal_latch_nzvc(self, flags: int):
-        self.nzvc_register = flags
+    def signal_read(self, sel: SelMemAdrIn) -> int:
+        if sel == self.SelMemAdrIn.FROM_PC:
+            return int.from_bytes(
+                self.memory.data[self.program_counter:self.program_counter + WORD_SIZE],
+                byteorder="big",
+                signed=True,
+            )
+        if sel == self.SelMemAdrIn.FROM_TODS:
+            return int.from_bytes(
+                self.memory.data[self.data_path.data_stack.tods():self.data_path.data_stack.tods() + WORD_SIZE],
+                byteorder="big",
+                signed=True,
+            )
+        if sel == self.SelMemAdrIn.FROM_0x5:
+            return int.from_bytes(
+                self.memory.data[INTR_VECTOR_ADDR:INTR_VECTOR_ADDR + WORD_SIZE],
+                byteorder="big",
+                signed=True,
+            )
+        
+    class SelLeftAlu(Enum):
+        FROM_NEXT = 1
+        ZERO = 2
 
-    # def signal_wr(self, sel):
-    #     assert sel in {
-    #         Opcode.INC.value,
-    #         Opcode.DEC.value,
-    #         Opcode.INPUT.value,
-    #     }, "internal error, incorrect selector: {}".format(sel)
+    def to_uint32(self, value: int) -> int:
+        return value & 0xFFFFFFFF
 
-    #     if sel == Opcode.INC.value:
-    #         self.data_memory[self.data_address] = self.acc + 1
-    #         if self.data_memory[self.data_address] == 128:
-    #             self.data_memory[self.data_address] = -128
-    #     elif sel == Opcode.DEC.value:
-    #         self.data_memory[self.data_address] = self.acc - 1
-    #         if self.data_memory[self.data_address] == -129:
-    #             self.data_memory[self.data_address] = 127
-    #     elif sel == Opcode.INPUT.value:
-    #         if len(self.input_buffer) == 0:
-    #             raise EOFError()
-    #         symbol = self.input_buffer.pop(0)
-    #         symbol_code = ord(symbol)
-    #         assert -128 <= symbol_code <= 127, "input token is out of bound: {}".format(symbol_code)
-    #         self.data_memory[self.data_address] = symbol_code
-    #         logging.debug("input: %s", repr(symbol))
+    def to_int32(self, value: int) -> int:
+        value &= 0xFFFFFFFF
+        if value & 0x80000000:
+            return value - 0x100000000
+        return value
 
-    # def zero(self):
-    #     return self.acc == 0
+    def make_flags(self, result: int, overflow: bool = False, carry: bool = False) -> int:
+        """
+        Флаги в порядке NZVC:
+        N = 8
+        Z = 4
+        V = 2
+        C = 1
+        """
+        result32 = self.to_uint32(result)
+
+        n = 1 if result32 & 0x80000000 else 0
+        z = 1 if result32 == 0 else 0
+        v = 1 if overflow else 0
+        c = 1 if carry else 0
+
+        return (n << 3) | (z << 2) | (v << 1) | c
+
+    def alu(self, operation: str, sel_left: SelLeftAlu) -> tuple[int, int]:
+        """
+        Выполняет операцию ALU над значениями стека.
+
+        Для бинарных операций:
+        left  = NEXT
+        right = TODS
+
+        Для унарной inv:
+        left  = 0
+        right = TODS
+
+        Возвращает:
+        (result, flags)
+        """
+        right = self.data_stack.tods()
+
+        if sel_left == self.SelLeftAlu.FROM_NEXT:
+            left = self.data_stack.next()
+        elif sel_left == self.SelLeftAlu.ZERO:
+            left = 0
+        else:
+            raise ValueError(f"unknown ALU left selector: {sel_left}")
+
+        left_u = self.to_uint32(left)
+        right_u = self.to_uint32(right)
+
+        left_s = self.to_int32(left)
+        right_s = self.to_int32(right)
+
+        overflow = False
+        carry = False
+
+        if operation == Opcode.ADD.value:
+            raw = left_u + right_u
+            result_u = raw & 0xFFFFFFFF
+            result = self.to_int32(result_u)
+
+            carry = raw > 0xFFFFFFFF
+            overflow = ((left_s >= 0 and right_s >= 0 and result < 0) or
+                        (left_s < 0 and right_s < 0 and result >= 0))
+
+        elif operation == Opcode.SUB.value:
+            raw = left_u - right_u
+            result_u = raw & 0xFFFFFFFF
+            result = self.to_int32(result_u)
+
+            # C = borrow при вычитании
+            carry = left_u < right_u
+            overflow = ((left_s >= 0 and right_s < 0 and result < 0) or
+                        (left_s < 0 and right_s >= 0 and result >= 0))
+
+        elif operation == Opcode.MUL.value:
+            raw = left_s * right_s
+            result = self.to_int32(raw)
+
+            overflow = raw < -(2 ** 31) or raw > 2 ** 31 - 1
+            carry = raw < 0 or raw > 0xFFFFFFFF
+
+        elif operation == Opcode.DIV.value:
+            if right_s == 0:
+                raise ZeroDivisionError("division by zero")
+
+            raw = int(left_s / right_s)
+            result = self.to_int32(raw)
+
+            overflow = raw < -(2 ** 31) or raw > 2 ** 31 - 1
+            carry = False
+
+        elif operation == Opcode.AND.value:
+            result = self.to_int32(left_u & right_u)
+
+        elif operation == Opcode.OR.value:
+            result = self.to_int32(left_u | right_u)
+
+        elif operation == Opcode.XOR.value:
+            result = self.to_int32(left_u ^ right_u)
+
+        elif operation == Opcode.INV.value:
+            result = self.to_int32(~right_u)
+
+        else:
+            raise ValueError(f"unknown ALU operation: {operation}")
+
+        flags = self.make_flags(result, overflow=overflow, carry=carry)
+        return result, flags
 
 
 class ControlUnit:
@@ -131,6 +259,12 @@ class ControlUnit:
 
     instr_register: int = None
     "Регистр команд. Инициализируется нулём."
+
+    ei_register: int = None
+    "Регистр статуса прерываний. Инициализируется нулём, тк по дефолту прерывания запрещены."
+
+    intr_req: bool = None
+    "Есть ли запрос на прерывание. Инициализируется False. При true гарантируется, что в IN лежит значение"
 
     data_path: DataPath = None
     "Блок обработки данных."
@@ -144,6 +278,8 @@ class ControlUnit:
         self.memory = program
         self.program_counter = 0
         self.instr_register = 0
+        self.ei_register = 0
+        self.intr_req = False
         self.data_path = data_path
         self._tick = 0
         self.step = 0
@@ -160,127 +296,258 @@ class ControlUnit:
         FROM_STACK = 3
         FROM_MEMORY = 4
 
-    def signal_latch_program_counter(self, sel_next: SelPcIn):
+    def signal_latch_program_counter(self, sel_next: SelPcIn, sel_mem: DataPath.SelMemAdrIn = None):
         if sel_next == self.SelPcIn.PLUS_1:
             self.program_counter += 1
         elif sel_next == self.SelPcIn.PLUS_4:
-            self.program_counter += 4
+            self.program_counter += WORD_SIZE
         elif sel_next == self.SelPcIn.FROM_MEMORY:
-            addr = int.from_bytes(
-                self.memory.data[self.program_counter:self.program_counter + 4],
-                byteorder="big",
-                signed=False,
-            )
-            self.program_counter = addr
+            data = self.data_path.signal_read(sel_mem)
+            # TODO: проверить на отрицательное число
+            self.program_counter = data
         elif sel_next == self.SelPcIn.FROM_STACK:
             self.program_counter = self.return_stack.pop()
             pass
 
     def signal_latch_instr_register(self):
-        self.instr_register = self.memory.data[self.program_counter]
+        self.instr_register = self.data_path.signal_read(self.data_path.SelMemAdrIn.FROM_PC)[0]
+
+    def signal_latch_ei_register(self, enabled: bool):
+        if enabled:
+            self.ei_register = 1
+        else:
+            self.ei_register = 0
 
     def process_next_tick(self):
         """Основной цикл процессора. Декодирует и выполняет инструкцию."""
 
+        # проверка буфера входных данных (IO CONTROLLER)
+        if self.data_path.input_buffer[0][0] == self.current_tick:
+            self.memory.data[IN_ADDR:IN_ADDR + WORD_SIZE] = self.data_path.input_buffer[0][1].to_bytes(WORD_SIZE, byteorder="big", signed=True)
+            self.data_path.input_buffer.pop(0)
+            self.intr_req = True
+
         # 1 tick -- instr fetch
         if self.step == 0:
             self.signal_latch_instr_register()
-
-            bin_instr = self.instr_register
-            opcode = decode_instr(bin_instr)
-
             self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
             self.step = 1
             self.tick()
             return
+        
+        bin_instr = self.instr_register
+        opcode = decode_instr(bin_instr)
 
-        # 2-...n-1 tick -- instr exec [and parse operand]
-
+        # 2-3 tick -- instr exec [and parse operand]
         if opcode is Opcode.HALT:
             raise StopIteration()
 
         if opcode is Opcode.JUMP:
             if self.step == 1:
-                self.signal_latch_program_counter(self.SelPcIn.FROM_MEMORY)
-                self.step = 0
+                self.signal_latch_program_counter(sel_next=self.SelPcIn.FROM_MEMORY, sel_mem=self.data_path.SelMemAdrIn.FROM_PC)
+                self.step = 3
                 self.tick()
                 return
 
         if opcode is Opcode.JNZ:
             if self.step == 1:
                 if self.data_path.stack.tods == 0:
-                    self.signal_latch_program_counter(sel_next=self.SelPcIn.FROM_MEMORY)
+                    self.signal_latch_program_counter(sel_next=self.SelPcIn.FROM_MEMORY, sel_mem=self.data_path.SelMemAdrIn.FROM_PC)
                 else:
                     self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_4)
-                self.step = 0
+                self.step = 3
                 self.tick()
                 return
         
         if opcode is Opcode.CALL:
             if self.step == 1:
                 self.return_stack.push(self.program_counter)
-                self.signal_latch_program_counter(self.SelPcIn.FROM_MEMORY)
-                self.step = 0
+                self.signal_latch_program_counter(sel_next=self.SelPcIn.FROM_MEMORY, sel_mem=self.data_path.SelMemAdrIn.FROM_PC)
+                self.step = 3
                 self.tick()
                 return
         
         if opcode is Opcode.RET:
             if self.step == 1:
-                self.signal_latch_program_counter(self.SelPcIn.FROM_STACK)
-                self.step = 0
+                self.signal_latch_program_counter(sel_next=self.SelPcIn.FROM_STACK)
+                self.step = 3
                 self.tick()
                 return
 
         if opcode is Opcode.IRET:
+            # два такта, чтобы снять два значения со стека
             if self.step == 1:
-                # save flags in return stack 
-                pass
+                data = self.return_stack.pop()
+                # TODO: проверить корректность флага
+                self.data_path.signal_latch_nzvc(self.data_path.SelNzvcIn.FROM_RS, data)
+                self.step = 2
+                self.tick()
+                return
+            if self.step == 2:
+                self.signal_latch_program_counter(sel_next=self.SelPcIn.FROM_STACK)
+                self.signal_latch_ei_register(True)
+                self.step = 3
+                self.tick()
+                return
 
         if opcode in {Opcode.ADD, Opcode.SUB, Opcode.MUL, Opcode.DIV, Opcode.AND, Opcode.OR, Opcode.XOR}:
             if self.step == 1:
-                res, flags = self.data_path.alu(opcode.value, self.data_path.alu.SelLeftAlu.FROM_NEXT)
+                res, flags = self.data_path.alu(opcode.value, self.data_path.SelLeftAlu.FROM_NEXT)
                 self.data_path.data_stack.pop(res)
-                self.data_path.signal_latch_nzvc(flags)
+                self.data_path.signal_latch_nzvc(self.data_path.SelNzvcIn.FROM_ALU, flags)
                 self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
-                self.step = 0
+                self.step = 3
                 self.tick()
                 return
 
         if opcode is Opcode.INV:
             if self.step == 1:
-                res, flags = self.data_path.alu(opcode.value, self.data_path.alu.SelLeftAlu.ZERO)
+                res, flags = self.data_path.alu(opcode.value, self.data_path.SelLeftAlu.ZERO)
                 self.data_path.data_stack.pop(res)
-                self.data_path.signal_latch_nzvc(flags)
+                self.data_path.signal_latch_nzvc(self.data_path.SelNzvcIn.FROM_ALU, flags)
                 self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
-                self.step = 0
+                self.step = 3
                 self.tick()
                 return
             
-        if opcode is 
+        if opcode is Opcode.LOAD:
+            if self.step == 1:
+                data = self.data_path.signal_read(self.data_path.SelMemAdrIn.FROM_TODS)
+                self.data_path.data_stack.latch_tods(data)
+                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
+                self.step = 3
+                self.tick()
+                return
+
+        if opcode is Opcode.STORE:
+            # два такта, чтобы снять два значения со стека
+            if self.step == 1:
+                self.data_path.signal_write()
+                addr = self.data_path.data_stack.pop()
+
+                # проверка буфера выходных данных
+                if addr == OUT_ADDR:
+                    self.data_path.output_buffer.append(self.data_path.data_stack.tods())
+
+                self.step = 2
+                self.tick()
+                return
+            if self.step == 2:
+                self.data_path.data_stack.pop()
+                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
+                self.step = 3
+                self.tick()
+                return
+
+        if opcode is Opcode.DI:
+            if self.step == 1:
+                self.signal_latch_ei_register(False)
+                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
+                self.step = 3
+                self.tick()
+                return
+
+        if opcode is Opcode.EI:
+            if self.step == 1:
+                self.signal_latch_ei_register(True)
+                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
+                self.step = 3
+                self.tick()
+                return
+
+        if opcode is Opcode.DROP:
+            if self.step == 1:
+                self.data_path.data_stack.pop()
+                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
+                self.step = 3
+                self.tick()
+                return
+
+        if opcode is Opcode.SWAP:
+            if self.step == 1:
+                self.data_path.data_stack.swap()
+                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
+                self.step = 3
+                self.tick()
+                return
+
+        if opcode is Opcode.OVER:
+            if self.step == 1:
+                self.data_path.data_stack.over()
+                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
+                self.step = 3
+                self.tick()
+                return
+
+        if opcode is Opcode.DUP:
+            if self.step == 1:
+                self.data_path.data_stack.dup()
+                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
+                self.step = 3
+                self.tick()
+                return
+
+        if opcode is Opcode.PUSH:
+            if self.step == 1:
+                data = self.data_path.signal_read(self.data_path.SelMemAdrIn.FROM_PC)
+                self.data_path.data_stack.push(data)
+                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
+                self.step = 3
+                self.tick()
+                return
+            
+
+        if opcode is Opcode.PUSH_FLAGS:
+            if self.step == 1:
+                self.data_path.data_stack.push(self.data_path.nzvc_register)
+                self.signal_latch_program_counter(sel_next=self.SelPcIn.PLUS_1)
+                self.step = 3
+                self.tick()
+                return
 
         # intr fetch
+        if self.step == 3:
+            if self.ei_register == 1 and self.intr_req is True:
+                # начинаем обработку прерывания
+                self.return_stack.push(self.program_counter)
+                self.signal_latch_program_counter(sel_next=self.SelPcIn.FROM_MEMORY, sel_mem=self.data_path.SelMemAdrIn.FROM_0x5)
+                self.step = 4
+                self.tick()
+                return
+            else:
+                self.step = 0
+                self.tick()
+                return
+        if self.step == 4:
+            # продолжаем прерывание
+            self.return_stack.push(self.data_path.nzvc_register)
+            # выключаем прерывания
+            self.signal_latch_ei_register(False)
+            self.step = 0
+            self.tick()
+            pass
 
-    def __repr__(self):
-        """Вернуть строковое представление состояния процессора."""
-        state_repr = "TICK: {:3} PC: {:3}/{} ADDR: {:3} MEM_OUT: {} ACC: {}".format(
-            self._tick,
-            self.program_counter,
-            self.step,
-            self.data_path.data_address,
-            self.data_path.data_memory.data[self.data_path.data_address],
-            self.data_path.acc,
-        )
+    # def __repr__(self):
+    #     """Вернуть строковое представление состояния процессора."""
+    #     state_repr = "TICK: {:3} PC: {:3}/{} ADDR: {:3} MEM_OUT: {} ACC: {}".format(
+    #         self._tick,
+    #         self.program_counter,
+    #         self.step,
+    #         self.data_path.data_address,
+    #         self.data_path.data_memory.data[self.data_path.data_address],
+    #         self.data_path.acc,
+    #     )
 
-        instr = self.program[self.program_counter]
-        opcode = instr["opcode"]
-        instr_repr = str(opcode)
+    #     instr = self.program[self.program_counter]
+    #     opcode = instr["opcode"]
+    #     instr_repr = str(opcode)
 
-        if "arg" in instr:
-            instr_repr += " {}".format(instr["arg"])
+    #     if "arg" in instr:
+    #         instr_repr += " {}".format(instr["arg"])
 
-        instr_hex = f"{opcode_to_binary[opcode] << 28 | (instr.get('arg', 0) & 0x0FFFFFFF):08X}"
+    #     instr_hex = f"{opcode_to_binary[opcode] << 28 | (instr.get('arg', 0) & 0x0FFFFFFF):08X}"
 
-        return "{} \t{} [{}]".format(state_repr, instr_repr, instr_hex)
+    #     return "{} \t{} [{}]".format(state_repr, instr_repr, instr_hex)
 
 
 def simulation(program: bytes, input_tokens: list[tuple], data_memory_size: int, limit: int):

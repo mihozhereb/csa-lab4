@@ -171,15 +171,6 @@ def to_hex(code: list[Instruction], base_addr: int = 0) -> str:
     return "\n".join(result)
 
 
-def has_arg(opcode: Opcode) -> bool:
-    return opcode in {
-        Opcode.PUSH,
-        Opcode.JUMP,
-        Opcode.JNZ,
-        Opcode.CALL,
-    }
-
-
 def decode_instr(opcode_bin: bytes) -> Opcode:
     if opcode_bin not in binary_to_opcode:
         raise ValueError(f"Unknown opcode 0x{opcode_bin:02X}")
