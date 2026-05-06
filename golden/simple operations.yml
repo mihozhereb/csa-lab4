@@ -1,0 +1,295 @@
+in_source: |-
+  : ARITHMETIC
+      2 3 +          \ 2 + 3 = 5, DS: [5]
+      push_flags     \ флаги результата 5: NZVC = 0000, DS: [5, 0]
+      drop           \ удалить флаги, DS: [5]
+      drop           \ удалить результат, DS: []
+
+      10 14 -        \ 10 - 14 = -4, DS: [-4]
+      push_flags     \ результат отрицательный: N=1, происходит заем: C=1, NZVC = 1001, DS: [-4, 9]
+      drop           \ удалить флаги, DS: [-4]
+      drop           \ удалить результат, DS: []
+
+      6 7 *          \ 6 * 7 = 42, DS: [42]
+      drop           \ удалить результат, DS: []
+
+      20 5 /         \ 20 / 5 = 4, DS: [4]
+      drop           \ удалить результат, DS: []
+  ;
+
+  : BITWISE
+      6 3 &          \ 6 = 0110, 3 = 0011
+                     \ 0110 & 0011 = 0010 = 2, DS: [2]
+      drop           \ DS: []
+
+      6 3 |          \ 6 = 0110, 3 = 0011
+                     \ 0110 | 0011 = 0111 = 7, DS: [7]
+      drop           \ DS: []
+
+      6 3 ^          \ 6 = 0110, 3 = 0011
+                     \ 0110 ^ 0011 = 0101 = 5, DS: [5]
+      drop           \ DS: []
+
+      0 ~            \ ~0 = -1, потому что все 32 бита становятся 1
+                     \ 0000...0000 -> 1111...1111 = -1, DS: [-1]
+      drop           \ DS: []
+  ;
+
+  : STACK_OPS
+      1 2 3          \ DS: [1, 2, 3]
+
+      dup            \ продублировать вершину, DS: [1, 2, 3, 3]
+      drop           \ удалить верхний элемент, DS: [1, 2, 3]
+
+      swap           \ поменять два верхних элемента, DS: [1, 3, 2]
+      over           \ скопировать второй элемент сверху, DS: [1, 3, 2, 3]
+
+      drop           \ удалить 3, DS: [1, 3, 2]
+      drop           \ удалить 2, DS: [1, 3]
+      drop           \ удалить 3, DS: [1]
+  ;
+
+  ARITHMETIC
+  BITWISE
+  STACK_OPS
+
+in_stdin: ''
+
+in_limit: 4000
+
+out_code: 60 00 00 00 89 00 00 00 00 00 00 00 00 00 00 00 00 25 00 00 00 02 25 
+  00 00 00 03 01 24 21 21 25 00 00 00 0A 25 00 00 00 0E 02 24 21 21 25 00 00 00 
+  06 25 00 00 00 07 03 21 25 00 00 00 14 25 00 00 00 05 04 21 63 25 00 00 00 06 
+  25 00 00 00 03 05 21 25 00 00 00 06 25 00 00 00 03 06 21 25 00 00 00 06 25 00 
+  00 00 03 07 21 25 00 00 00 00 08 21 63 25 00 00 00 01 25 00 00 00 02 25 00 00 
+  00 03 20 21 22 23 21 21 21 63 62 00 00 00 11 62 00 00 00 46 62 00 00 00 72 80
+out_code_hex: |-
+  0 - 00000000 - 60 00 00 00 89 - init: jump 137
+  5 - 00000005 - 00 00 00 00 - init: interrupt vector 0
+  9 - 00000009 - 00 00 00 00 - init: io in reserved
+  13 - 0000000D - 00 00 00 00 - init: io out reserved
+  17 - 00000011 - 25 00 00 00 02 - push 2 - word: ARITHMETIC
+  22 - 00000016 - 25 00 00 00 03 - push 3
+  27 - 0000001B - 01 - add
+  28 - 0000001C - 24 - push_flags
+  29 - 0000001D - 21 - drop
+  30 - 0000001E - 21 - drop
+  31 - 0000001F - 25 00 00 00 0A - push 10
+  36 - 00000024 - 25 00 00 00 0E - push 14
+  41 - 00000029 - 02 - sub
+  42 - 0000002A - 24 - push_flags
+  43 - 0000002B - 21 - drop
+  44 - 0000002C - 21 - drop
+  45 - 0000002D - 25 00 00 00 06 - push 6
+  50 - 00000032 - 25 00 00 00 07 - push 7
+  55 - 00000037 - 03 - mul
+  56 - 00000038 - 21 - drop
+  57 - 00000039 - 25 00 00 00 14 - push 20
+  62 - 0000003E - 25 00 00 00 05 - push 5
+  67 - 00000043 - 04 - div
+  68 - 00000044 - 21 - drop
+  69 - 00000045 - 63 - ret
+  70 - 00000046 - 25 00 00 00 06 - push 6 - word: BITWISE
+  75 - 0000004B - 25 00 00 00 03 - push 3
+  80 - 00000050 - 05 - and
+  81 - 00000051 - 21 - drop
+  82 - 00000052 - 25 00 00 00 06 - push 6
+  87 - 00000057 - 25 00 00 00 03 - push 3
+  92 - 0000005C - 06 - or
+  93 - 0000005D - 21 - drop
+  94 - 0000005E - 25 00 00 00 06 - push 6
+  99 - 00000063 - 25 00 00 00 03 - push 3
+  104 - 00000068 - 07 - xor
+  105 - 00000069 - 21 - drop
+  106 - 0000006A - 25 00 00 00 00 - push 0
+  111 - 0000006F - 08 - inv
+  112 - 00000070 - 21 - drop
+  113 - 00000071 - 63 - ret
+  114 - 00000072 - 25 00 00 00 01 - push 1 - word: STACK_OPS
+  119 - 00000077 - 25 00 00 00 02 - push 2
+  124 - 0000007C - 25 00 00 00 03 - push 3
+  129 - 00000081 - 20 - dup
+  130 - 00000082 - 21 - drop
+  131 - 00000083 - 22 - swap
+  132 - 00000084 - 23 - over
+  133 - 00000085 - 21 - drop
+  134 - 00000086 - 21 - drop
+  135 - 00000087 - 21 - drop
+  136 - 00000088 - 63 - ret
+  137 - 00000089 - 62 00 00 00 11 - call 17
+  142 - 0000008E - 62 00 00 00 46 - call 70
+  147 - 00000093 - 62 00 00 00 72 - call 114
+  152 - 00000098 - 80 - halt
+out_stdout: |
+  code instr: 52
+  data bytes: 0
+  total bytes: 153
+  ============================================================
+  stdout: 
+  buffer: []
+  ticks: 160
+out_log: |-
+  DEBUG    root:machine.py:646 TICK: 0000 | PC: 0000 | STEP: 3 | IR: 0x00 (unknown(0x00)) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0001 | PC: 0001 | STEP: 0 | IR: 0x60 (jump 137) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0002 | PC: 0137 | STEP: 2 | IR: 0x60 (jump ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0003 | PC: 0137 | STEP: 3 | IR: 0x60 (jump ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0004 | PC: 0138 | STEP: 0 | IR: 0x62 (call 17) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0005 | PC: 0017 | STEP: 2 | IR: 0x62 (call ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0006 | PC: 0017 | STEP: 3 | IR: 0x62 (call ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0007 | PC: 0018 | STEP: 0 | IR: 0x25 (push 2) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0008 | PC: 0022 | STEP: 2 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [2] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0009 | PC: 0022 | STEP: 3 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [2] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0010 | PC: 0023 | STEP: 0 | IR: 0x25 (push 3) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [2] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0011 | PC: 0027 | STEP: 2 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [2, 3] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0012 | PC: 0027 | STEP: 3 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [2, 3] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0013 | PC: 0028 | STEP: 0 | IR: 0x01 (add) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [2, 3] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0014 | PC: 0028 | STEP: 2 | IR: 0x01 (add) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [5] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0015 | PC: 0028 | STEP: 3 | IR: 0x01 (add) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [5] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0016 | PC: 0029 | STEP: 0 | IR: 0x24 (push_flags) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [5] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0017 | PC: 0029 | STEP: 2 | IR: 0x24 (push_flags) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [5, 0] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0018 | PC: 0029 | STEP: 3 | IR: 0x24 (push_flags) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [5, 0] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0019 | PC: 0030 | STEP: 0 | IR: 0x21 (drop) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [5, 0] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0020 | PC: 0030 | STEP: 2 | IR: 0x21 (drop) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [5] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0021 | PC: 0030 | STEP: 3 | IR: 0x21 (drop) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [5] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0022 | PC: 0031 | STEP: 0 | IR: 0x21 (drop) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [5] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0023 | PC: 0031 | STEP: 2 | IR: 0x21 (drop) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0024 | PC: 0031 | STEP: 3 | IR: 0x21 (drop) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0025 | PC: 0032 | STEP: 0 | IR: 0x25 (push 10) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0026 | PC: 0036 | STEP: 2 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [10] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0027 | PC: 0036 | STEP: 3 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [10] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0028 | PC: 0037 | STEP: 0 | IR: 0x25 (push 14) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [10] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0029 | PC: 0041 | STEP: 2 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [10, 14] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0030 | PC: 0041 | STEP: 3 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [10, 14] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0031 | PC: 0042 | STEP: 0 | IR: 0x02 (sub) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [10, 14] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0032 | PC: 0042 | STEP: 2 | IR: 0x02 (sub) | NZVC: 1001 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [-4] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0033 | PC: 0042 | STEP: 3 | IR: 0x02 (sub) | NZVC: 1001 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [-4] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0034 | PC: 0043 | STEP: 0 | IR: 0x24 (push_flags) | NZVC: 1001 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [-4] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0035 | PC: 0043 | STEP: 2 | IR: 0x24 (push_flags) | NZVC: 1001 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [-4, 9] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0036 | PC: 0043 | STEP: 3 | IR: 0x24 (push_flags) | NZVC: 1001 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [-4, 9] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0037 | PC: 0044 | STEP: 0 | IR: 0x21 (drop) | NZVC: 1001 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [-4, 9] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0038 | PC: 0044 | STEP: 2 | IR: 0x21 (drop) | NZVC: 1001 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [-4] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0039 | PC: 0044 | STEP: 3 | IR: 0x21 (drop) | NZVC: 1001 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [-4] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0040 | PC: 0045 | STEP: 0 | IR: 0x21 (drop) | NZVC: 1001 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [-4] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0041 | PC: 0045 | STEP: 2 | IR: 0x21 (drop) | NZVC: 1001 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0042 | PC: 0045 | STEP: 3 | IR: 0x21 (drop) | NZVC: 1001 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0043 | PC: 0046 | STEP: 0 | IR: 0x25 (push 6) | NZVC: 1001 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0044 | PC: 0050 | STEP: 2 | IR: 0x25 (push ) | NZVC: 1001 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0045 | PC: 0050 | STEP: 3 | IR: 0x25 (push ) | NZVC: 1001 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0046 | PC: 0051 | STEP: 0 | IR: 0x25 (push 7) | NZVC: 1001 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0047 | PC: 0055 | STEP: 2 | IR: 0x25 (push ) | NZVC: 1001 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6, 7] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0048 | PC: 0055 | STEP: 3 | IR: 0x25 (push ) | NZVC: 1001 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6, 7] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0049 | PC: 0056 | STEP: 0 | IR: 0x03 (mul) | NZVC: 1001 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6, 7] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0050 | PC: 0056 | STEP: 2 | IR: 0x03 (mul) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [42] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0051 | PC: 0056 | STEP: 3 | IR: 0x03 (mul) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [42] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0052 | PC: 0057 | STEP: 0 | IR: 0x21 (drop) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [42] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0053 | PC: 0057 | STEP: 2 | IR: 0x21 (drop) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0054 | PC: 0057 | STEP: 3 | IR: 0x21 (drop) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0055 | PC: 0058 | STEP: 0 | IR: 0x25 (push 20) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0056 | PC: 0062 | STEP: 2 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [20] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0057 | PC: 0062 | STEP: 3 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [20] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0058 | PC: 0063 | STEP: 0 | IR: 0x25 (push 5) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [20] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0059 | PC: 0067 | STEP: 2 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [20, 5] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0060 | PC: 0067 | STEP: 3 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [20, 5] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0061 | PC: 0068 | STEP: 0 | IR: 0x04 (div) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [20, 5] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0062 | PC: 0068 | STEP: 2 | IR: 0x04 (div) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [4] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0063 | PC: 0068 | STEP: 3 | IR: 0x04 (div) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [4] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0064 | PC: 0069 | STEP: 0 | IR: 0x21 (drop) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [4] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0065 | PC: 0069 | STEP: 2 | IR: 0x21 (drop) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0066 | PC: 0069 | STEP: 3 | IR: 0x21 (drop) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0067 | PC: 0070 | STEP: 0 | IR: 0x63 (ret) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [138] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0068 | PC: 0138 | STEP: 1 | IR: 0x63 (ret) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0069 | PC: 0142 | STEP: 2 | IR: 0x63 (ret) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0070 | PC: 0142 | STEP: 3 | IR: 0x63 (ret) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0071 | PC: 0143 | STEP: 0 | IR: 0x62 (call 70) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0072 | PC: 0070 | STEP: 2 | IR: 0x62 (call ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0073 | PC: 0070 | STEP: 3 | IR: 0x62 (call ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0074 | PC: 0071 | STEP: 0 | IR: 0x25 (push 6) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0075 | PC: 0075 | STEP: 2 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0076 | PC: 0075 | STEP: 3 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0077 | PC: 0076 | STEP: 0 | IR: 0x25 (push 3) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0078 | PC: 0080 | STEP: 2 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6, 3] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0079 | PC: 0080 | STEP: 3 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6, 3] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0080 | PC: 0081 | STEP: 0 | IR: 0x05 (and) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6, 3] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0081 | PC: 0081 | STEP: 2 | IR: 0x05 (and) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [2] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0082 | PC: 0081 | STEP: 3 | IR: 0x05 (and) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [2] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0083 | PC: 0082 | STEP: 0 | IR: 0x21 (drop) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [2] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0084 | PC: 0082 | STEP: 2 | IR: 0x21 (drop) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0085 | PC: 0082 | STEP: 3 | IR: 0x21 (drop) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0086 | PC: 0083 | STEP: 0 | IR: 0x25 (push 6) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0087 | PC: 0087 | STEP: 2 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0088 | PC: 0087 | STEP: 3 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0089 | PC: 0088 | STEP: 0 | IR: 0x25 (push 3) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0090 | PC: 0092 | STEP: 2 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6, 3] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0091 | PC: 0092 | STEP: 3 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6, 3] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0092 | PC: 0093 | STEP: 0 | IR: 0x06 (or) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6, 3] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0093 | PC: 0093 | STEP: 2 | IR: 0x06 (or) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [7] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0094 | PC: 0093 | STEP: 3 | IR: 0x06 (or) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [7] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0095 | PC: 0094 | STEP: 0 | IR: 0x21 (drop) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [7] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0096 | PC: 0094 | STEP: 2 | IR: 0x21 (drop) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0097 | PC: 0094 | STEP: 3 | IR: 0x21 (drop) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0098 | PC: 0095 | STEP: 0 | IR: 0x25 (push 6) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0099 | PC: 0099 | STEP: 2 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0100 | PC: 0099 | STEP: 3 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0101 | PC: 0100 | STEP: 0 | IR: 0x25 (push 3) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0102 | PC: 0104 | STEP: 2 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6, 3] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0103 | PC: 0104 | STEP: 3 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6, 3] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0104 | PC: 0105 | STEP: 0 | IR: 0x07 (xor) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [6, 3] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0105 | PC: 0105 | STEP: 2 | IR: 0x07 (xor) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [5] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0106 | PC: 0105 | STEP: 3 | IR: 0x07 (xor) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [5] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0107 | PC: 0106 | STEP: 0 | IR: 0x21 (drop) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [5] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0108 | PC: 0106 | STEP: 2 | IR: 0x21 (drop) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0109 | PC: 0106 | STEP: 3 | IR: 0x21 (drop) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0110 | PC: 0107 | STEP: 0 | IR: 0x25 (push 0) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0111 | PC: 0111 | STEP: 2 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [0] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0112 | PC: 0111 | STEP: 3 | IR: 0x25 (push ) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [0] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0113 | PC: 0112 | STEP: 0 | IR: 0x08 (inv) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [0] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0114 | PC: 0112 | STEP: 2 | IR: 0x08 (inv) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [-1] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0115 | PC: 0112 | STEP: 3 | IR: 0x08 (inv) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [-1] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0116 | PC: 0113 | STEP: 0 | IR: 0x21 (drop) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [-1] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0117 | PC: 0113 | STEP: 2 | IR: 0x21 (drop) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0118 | PC: 0113 | STEP: 3 | IR: 0x21 (drop) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0119 | PC: 0114 | STEP: 0 | IR: 0x63 (ret) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [143] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0120 | PC: 0143 | STEP: 1 | IR: 0x63 (ret) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0121 | PC: 0147 | STEP: 2 | IR: 0x63 (ret) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0122 | PC: 0147 | STEP: 3 | IR: 0x63 (ret) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0123 | PC: 0148 | STEP: 0 | IR: 0x62 (call 114) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0124 | PC: 0114 | STEP: 2 | IR: 0x62 (call ) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0125 | PC: 0114 | STEP: 3 | IR: 0x62 (call ) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0126 | PC: 0115 | STEP: 0 | IR: 0x25 (push 1) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0127 | PC: 0119 | STEP: 2 | IR: 0x25 (push ) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0128 | PC: 0119 | STEP: 3 | IR: 0x25 (push ) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0129 | PC: 0120 | STEP: 0 | IR: 0x25 (push 2) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0130 | PC: 0124 | STEP: 2 | IR: 0x25 (push ) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 2] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0131 | PC: 0124 | STEP: 3 | IR: 0x25 (push ) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 2] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0132 | PC: 0125 | STEP: 0 | IR: 0x25 (push 3) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 2] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0133 | PC: 0129 | STEP: 2 | IR: 0x25 (push ) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 2, 3] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0134 | PC: 0129 | STEP: 3 | IR: 0x25 (push ) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 2, 3] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0135 | PC: 0130 | STEP: 0 | IR: 0x20 (dup) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 2, 3] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0136 | PC: 0130 | STEP: 2 | IR: 0x20 (dup) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 2, 3, 3] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0137 | PC: 0130 | STEP: 3 | IR: 0x20 (dup) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 2, 3, 3] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0138 | PC: 0131 | STEP: 0 | IR: 0x21 (drop) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 2, 3, 3] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0139 | PC: 0131 | STEP: 2 | IR: 0x21 (drop) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 2, 3] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0140 | PC: 0131 | STEP: 3 | IR: 0x21 (drop) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 2, 3] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0141 | PC: 0132 | STEP: 0 | IR: 0x22 (swap) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 2, 3] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0142 | PC: 0132 | STEP: 2 | IR: 0x22 (swap) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 3, 2] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0143 | PC: 0132 | STEP: 3 | IR: 0x22 (swap) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 3, 2] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0144 | PC: 0133 | STEP: 0 | IR: 0x23 (over) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 3, 2] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0145 | PC: 0133 | STEP: 2 | IR: 0x23 (over) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 3, 2, 3] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0146 | PC: 0133 | STEP: 3 | IR: 0x23 (over) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 3, 2, 3] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0147 | PC: 0134 | STEP: 0 | IR: 0x21 (drop) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 3, 2, 3] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0148 | PC: 0134 | STEP: 2 | IR: 0x21 (drop) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 3, 2] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0149 | PC: 0134 | STEP: 3 | IR: 0x21 (drop) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 3, 2] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0150 | PC: 0135 | STEP: 0 | IR: 0x21 (drop) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 3, 2] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0151 | PC: 0135 | STEP: 2 | IR: 0x21 (drop) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 3] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0152 | PC: 0135 | STEP: 3 | IR: 0x21 (drop) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 3] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0153 | PC: 0136 | STEP: 0 | IR: 0x21 (drop) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1, 3] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0154 | PC: 0136 | STEP: 2 | IR: 0x21 (drop) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0155 | PC: 0136 | STEP: 3 | IR: 0x21 (drop) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0156 | PC: 0137 | STEP: 0 | IR: 0x63 (ret) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1] | RS: [148] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0157 | PC: 0148 | STEP: 1 | IR: 0x63 (ret) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1] | RS: [] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0158 | PC: 0152 | STEP: 2 | IR: 0x63 (ret) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1] | RS: [] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0159 | PC: 0152 | STEP: 3 | IR: 0x63 (ret) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1] | RS: [] | OUT: []
+  DEBUG    root:machine.py:650 TICK: 0160 | PC: 0153 | STEP: 0 | IR: 0x80 (halt) | NZVC: 1000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [1] | RS: [] | OUT: []
+  INFO     root:machine.py:660 output_buffer_str: 
+  INFO     root:machine.py:661 output_buffer_numbers: []
+  EOF
