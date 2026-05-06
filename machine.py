@@ -485,7 +485,7 @@ class ControlUnit:
         if opcode is Opcode.INV:
             if self.step == 1:
                 res, flags = self.data_path.alu(opcode.value, self.data_path.SelLeftAlu.ZERO)
-                self.data_path.data_stack.pop(res)
+                self.data_path.data_stack.latch_tods(res)
                 self.data_path.signal_latch_nzvc(self.data_path.SelNzvcIn.FROM_ALU, flags)
                 self.step = 3
                 self.tick()
