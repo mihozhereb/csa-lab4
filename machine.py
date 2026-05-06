@@ -322,7 +322,7 @@ class ControlUnit:
 
     return_stack: ReturnStack = None
 
-    _tick = None
+    _tick: int = None
     "Текущее модельное время процессора (в тактах). Инициализируется нулём."
 
     def __init__(self, program: Memory, data_path: DataPath):
@@ -340,7 +340,7 @@ class ControlUnit:
     def tick(self):
         self._tick += 1
 
-    def current_tick(self):
+    def current_tick(self) -> int:
         return self._tick
 
     class SelPcIn(Enum):
@@ -636,7 +636,11 @@ class ControlUnit:
         )
 
 
-def simulation(program: bytes, input_tokens: list[tuple[int, int]], limit: int):
+def simulation(
+    program: bytes,
+    input_tokens: list[tuple[int, int]],
+    limit: int
+) -> tuple[str, list[int], int]:
     memory = Memory(program)
     data_path = DataPath(memory, input_tokens)
     control_unit = ControlUnit(memory, data_path)
@@ -651,9 +655,13 @@ def simulation(program: bytes, input_tokens: list[tuple[int, int]], limit: int):
 
     if control_unit._tick >= limit:
         logging.warning("Limit exceeded!")
-    output = "".join(chr(value) for value in data_path.output_buffer)
-    logging.info("output_buffer: %s", repr(output))
-    return output, control_unit.current_tick()
+    output = "".join(
+        chr(value) if 32 <= value <= 126 or value in (9, 10, 13) else ""
+        for value in data_path.output_buffer
+    )
+    logging.info("output_buffer_str: %s", output)
+    logging.info("output_buffer_numbers: %s", data_path.output_buffer)
+    return output, data_path.output_buffer, control_unit.current_tick()
 
 
 def parse_input(text: str) -> list[tuple[int, int]]:
@@ -695,13 +703,14 @@ def main(code_file, input_file, limit=4000):
     with open(input_file, encoding="utf-8") as file:
         input_text = file.read()
 
-    output, ticks = simulation(
+    output, buffer, ticks = simulation(
         binary_code,
         input_tokens=parse_input(input_text),
         limit=limit,
     )
 
-    print("".join(output))
+    print("stdout:", output)
+    print("buffer:", buffer)
     print("ticks:", ticks)
 
 

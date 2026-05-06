@@ -137,8 +137,8 @@ INCLUDE s"math.fs"      \ оператор > импортируется из mat
 
 ```
 INCLUDE s"math.fs"      \ оператор > импортируется из math.fs
-INCLUDE s"io.fs"        \ слово WRITE импортируется из io.fs
-BEGIN dup 0 > WHILE dup WRITE 1 - REPEAT
+INCLUDE s"io.fs"        \ слово WRITE_CHAR импортируется из io.fs
+BEGIN dup 0 > WHILE dup WRITE_CHAR 1 - REPEAT
 ```
 
 - Поддерживается вложенность управляющих конструкций (IF и WHILE).
@@ -275,6 +275,8 @@ BEGIN dup 0 > WHILE dup WRITE 1 - REPEAT
 - Ввод-вывод реализован через memory-mapped I/O по адресам `0x9` и `0xD`.
 - Прерывания используют вектор по адресу `0x5`; `di` и `ei` запрещают и разрешают обработку прерываний, `iret` делает возврат из прерывания. По умолчанию прерывания запрещены.
 - Во время прерывания другие прерывания обрабатывать запрещено, `di` вызывается автоматически, если вызвать `ei` вручную -- неопределенное поведение.
+- Входные данные подаются в формате `[(tick, value), ...]`, где `tick` -- такт вызова прерывания, `value` -- значение, может быть символом в ' ' или знаковым десятичным числом.
+- Выходные данные печаются в двух интерпретациях: строка, массив чисел.
 
 ### Цикл исполнения команды
 
@@ -456,7 +458,7 @@ BEGIN dup 0 > WHILE dup WRITE 1 - REPEAT
 - `TODS to control unit` -- для условных переходов
 - `NZVC to control unit` -- для сохранения флагов в return stack при прерывании
 
-Флаги из алу сохраняются в регистр `NZVC`.
+Флаги из алу сохраняются в регистр `NZVC`. Соответственно, флаги устанавливаются только после alu-операций.
 
 Флаги:
 
@@ -552,13 +554,14 @@ BEGIN dup 0 > WHILE dup WRITE 1 - REPEAT
 Результат выполнения:
 
 ```py
-golden_test.py::test_translator_and_machine[golden/cat.yml] PASSED                                                                                                                  [ 20%]
-golden_test.py::test_translator_and_machine[golden/hello (simple).yml] PASSED                                                                                                       [ 40%]
-golden_test.py::test_translator_and_machine[golden/hello.yml] PASSED                                                                                                                [ 60%]
-golden_test.py::test_translator_and_machine[golden/hello_user_name.yml] PASSED                                                                                                      [ 80%]
-golden_test.py::test_translator_and_machine[golden/sort.yml] PASSED                                                                                                                 [100%]
+golden_test.py::test_translator_and_machine[golden/cat.yml] PASSED                            [ 16%]
+golden_test.py::test_translator_and_machine[golden/hello (simple).yml] PASSED                 [ 33%]
+golden_test.py::test_translator_and_machine[golden/hello.yml] PASSED                          [ 50%]
+golden_test.py::test_translator_and_machine[golden/hello_user_name.yml] PASSED                [ 66%]
+golden_test.py::test_translator_and_machine[golden/prob2.yml] PASSED                          [ 83%]
+golden_test.py::test_translator_and_machine[golden/sort.yml] PASSED                           [100%]
 
-=================================================================================== 5 passed in 0.59s ====================================================================================
+======================================== 6 passed in 1.06s =========================================
 ```
 
 ### CI

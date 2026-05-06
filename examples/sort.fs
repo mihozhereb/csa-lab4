@@ -65,7 +65,7 @@ VAR 0 J
     BEGIN
         I @ LEN @ <
     WHILE
-        I @ ARR_GET 48 + WRITE_CHAR
+        I @ ARR_GET WRITE_CHAR
 
         I @ 1 + I !
     REPEAT
