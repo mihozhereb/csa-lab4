@@ -646,8 +646,6 @@ def simulation(program: bytes, input_tokens: list[tuple[int, int]], limit: int):
         while control_unit._tick < limit:
             control_unit.process_next_tick()
             logging.debug("%s", control_unit)
-    except EOFError:
-        logging.warning("Input buffer is empty!")
     except StopIteration:
         pass
 

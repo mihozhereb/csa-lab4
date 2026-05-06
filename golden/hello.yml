@@ -849,5 +849,5 @@ out_log: |-
   DEBUG    root:machine.py:648 TICK: 0612 | PC: 0616 | STEP: 2 | IR: 0x63 (ret) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [] | OUT: [72, 101, 108, 108, 111, 44, 32, 119, 111, 114, 108, 100, 33]
   DEBUG    root:machine.py:648 TICK: 0613 | PC: 0616 | STEP: 3 | IR: 0x63 (ret) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [] | OUT: [72, 101, 108, 108, 111, 44, 32, 119, 111, 114, 108, 100, 33]
   DEBUG    root:machine.py:648 TICK: 0614 | PC: 0617 | STEP: 0 | IR: 0x80 (halt) | NZVC: 0000 | EI: 0 | INTR: 0 | IN INTR: 0 | DS: [] | RS: [] | OUT: [72, 101, 108, 108, 111, 44, 32, 119, 111, 114, 108, 100, 33]
-  INFO     root:machine.py:657 output_buffer: 'Hello, world!'
+  INFO     root:machine.py:655 output_buffer: 'Hello, world!'
   EOF
