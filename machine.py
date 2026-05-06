@@ -637,9 +637,7 @@ class ControlUnit:
 
 
 def simulation(
-    program: bytes,
-    input_tokens: list[tuple[int, int]],
-    limit: int
+    program: bytes, input_tokens: list[tuple[int, int]], limit: int
 ) -> tuple[str, list[int], int]:
     memory = Memory(program)
     data_path = DataPath(memory, input_tokens)
