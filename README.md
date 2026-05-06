@@ -554,14 +554,16 @@ BEGIN dup 0 > WHILE dup WRITE_CHAR 1 - REPEAT
 Результат выполнения:
 
 ```py
-golden_test.py::test_translator_and_machine[golden/cat.yml] PASSED                            [ 16%]
-golden_test.py::test_translator_and_machine[golden/hello (simple).yml] PASSED                 [ 33%]
-golden_test.py::test_translator_and_machine[golden/hello.yml] PASSED                          [ 50%]
-golden_test.py::test_translator_and_machine[golden/hello_user_name.yml] PASSED                [ 66%]
-golden_test.py::test_translator_and_machine[golden/prob2.yml] PASSED                          [ 83%]
-golden_test.py::test_translator_and_machine[golden/sort.yml] PASSED                           [100%]
+golden_test.py::test_translator_and_machine[golden/cat.yml] PASSED                        [ 12%]
+golden_test.py::test_translator_and_machine[golden/double_precision.yml] PASSED           [ 25%]
+golden_test.py::test_translator_and_machine[golden/hello (simple).yml] PASSED             [ 37%]
+golden_test.py::test_translator_and_machine[golden/hello.yml] PASSED                      [ 50%]
+golden_test.py::test_translator_and_machine[golden/hello_user_name.yml] PASSED            [ 62%]
+golden_test.py::test_translator_and_machine[golden/prob2.yml] PASSED                      [ 75%]
+golden_test.py::test_translator_and_machine[golden/simple operations.yml] PASSED          [ 87%]
+golden_test.py::test_translator_and_machine[golden/sort.yml] PASSED                       [100%]
 
-======================================== 6 passed in 1.06s =========================================
+====================================== 8 passed in 1.13s =======================================
 ```
 
 ### CI
